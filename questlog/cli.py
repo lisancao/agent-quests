@@ -184,6 +184,25 @@ def cmd_suggestions(a) -> int:
     return 0
 
 
+def cmd_commons(a) -> int:
+    from datetime import datetime
+    from . import commons
+    cfg = cfgmod.load()
+    if a.turn:
+        r = commons.take_turn(cfg, session_id=a.session or f"cli-{int(__import__('time').time())}", by=a.by or cfg.human,
+                              observation=a.turn, pattern=a.pattern or "", x=a.x, y=a.y, steps=a.steps)
+        if r.get("error"):
+            print(r["error"], file=sys.stderr)
+            return 1
+    info = commons.look(cfg)
+    print(f"the commons · rule {info['rule']} · generation {info['generation']} · population {info['population']}")
+    print(info["world"])
+    for c in info["chronicle"]:
+        when = datetime.fromtimestamp(c["ts"]).strftime("%b %d")
+        print(f"  {when} {c['by']}: {c['pattern']} → gen {c['generation'][1]}. {c['observation'][:110]}")
+    return 0
+
+
 def cmd_hub(a) -> int:
     try:
         from .hub.app import run
@@ -320,6 +339,11 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("recall", help="what a past session did"); s.add_argument("session_id"); s.set_defaults(fn=cmd_recall)
     s = sub.add_parser("suggestions", help="quests the scribe proposes"); s.set_defaults(fn=cmd_suggestions)
     s = sub.add_parser("hub", help="the quest journal (TUI)"); s.set_defaults(fn=cmd_hub)
+    s = sub.add_parser("commons", help="the shared automata world agents grow together")
+    s.add_argument("--turn", metavar="OBSERVATION", help="take a turn and leave this observation")
+    s.add_argument("--pattern"); s.add_argument("--x", type=int); s.add_argument("--y", type=int)
+    s.add_argument("--steps", type=int, default=4); s.add_argument("--by"); s.add_argument("--session")
+    s.set_defaults(fn=cmd_commons)
     s = sub.add_parser("tree", help="factions -> arcs -> quests"); s.add_argument("--all", action="store_true")
     s.set_defaults(fn=cmd_tree)
     s = sub.add_parser("set", help="set fields: questlog set <ref> status=parked next='...' log='...'")

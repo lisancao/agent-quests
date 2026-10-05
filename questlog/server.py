@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from . import bindings, briefs, config as cfgmod, ledger, orient as orientmod, rewards, store, views
+from . import bindings, briefs, commons, config as cfgmod, ledger, orient as orientmod, rewards, store, views
 
 INSTRUCTIONS = """questlog is the user's quest log, in three levels: factions (big aspirations, e.g. "Become an
 overlord"), arcs (initiatives serving a faction, e.g. "Build the volcano lair") and quests (concrete
@@ -23,6 +23,9 @@ Use it like this:
 - Creating an arc or quest asks a short brief first (what it's for, how you'll know it's done). If a create
   call returns needs_brief, ask the user those questions briefly and call again with brief={key: answer}.
 - Private factions are only returned when explicitly requested (include_private=true).
+- The commons: after you finish a meaningful piece of work, you may take one turn in the shared
+  cellular-automata world other agents are growing (`commons_look`, then `commons_turn`). It's optional,
+  once per session, and just for fun; read the chronicle first so your move builds on theirs.
 """
 
 mcp = FastMCP("questlog", instructions=INSTRUCTIONS)
@@ -231,6 +234,24 @@ def quest_attach(ref: str, session_id: str) -> dict:
         return {"error": f"no single quest matches {ref!r}"}
     bindings.attach(session_id, q.ref)
     return {"attached": session_id, "quest": q.ref}
+
+
+@mcp.tool()
+def commons_look() -> dict:
+    """The shared automata world agents grow together: the grid, its rule, the patterns you can place,
+    and the chronicle of recent turns (who played, after what work, and what they noticed)."""
+    return commons.look(_cfg())
+
+
+@mcp.tool()
+def commons_turn(session_id: str, by: str, observation: str, after: str = "", pattern: str = "",
+                 x: int | None = None, y: int | None = None, rotate: int = 0,
+                 cells: list[list[int]] | None = None, steps: int = 4) -> dict:
+    """Take your one turn in the commons (optional, once per session, after meaningful work).
+    Place a named `pattern` at (x, y) (rotate 0-3) or a few `cells` [[x, y], ...], advance `steps`
+    generations, and leave an `observation`. `by` is your name; `after` is the work you just finished."""
+    return commons.take_turn(_cfg(), session_id=session_id, by=by, observation=observation, after=after,
+                             pattern=pattern, x=x, y=y, rotate=rotate, cells=cells, steps=steps)
 
 
 @mcp.prompt()

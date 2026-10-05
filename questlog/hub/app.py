@@ -21,7 +21,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Markdown, Static, TabbedContent, TabPane, Tree
 
-from .. import config as cfgmod, ledger, rewards, store, views
+from .. import commons, config as cfgmod, ledger, rewards, store, views
 
 DEFAULT_THEME = {
     "bg": "#0b0d12", "panel": "#12151c", "line": "#262b36", "text": "#cdd3de", "dim": "#7c8597",
@@ -39,6 +39,7 @@ Tab { color: $q-dim; }
 Tab.-active { color: $q-bright; text-style: bold; }
 Underline > .underline--bar { color: $q-accent; background: $q-line; }
 #character { padding: 1 2; }
+#commons-pane { padding: 1 2; }
 #journal-row { height: 1fr; }
 #tree { width: 45%; background: $q-panel; border: round $q-line; padding: 0 1; }
 #tree:focus { border: round $q-accent; }
@@ -88,6 +89,7 @@ class Hub(App):
         Binding("3", "tab('deeds')", "deeds"),
         Binding("4", "tab('party')", "party"),
         Binding("5", "tab('suggestions')", "suggestions"),
+        Binding("6", "tab('commons')", "commons"),
         Binding("p", "toggle_private", "private"),
         Binding("a", "accept", "accept", show=False),
         Binding("x", "dismiss_suggestion", "dismiss", show=False),
@@ -125,6 +127,8 @@ class Hub(App):
                 yield DataTable(id="party-table", cursor_type="row")
             with TabPane("Suggestions", id="suggestions"):
                 yield DataTable(id="sugg-table", cursor_type="row")
+            with TabPane("Commons", id="commons"):
+                yield VerticalScroll(Static(id="commons-view"), id="commons-pane")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -143,6 +147,7 @@ class Hub(App):
         self.render_deeds()
         self.render_party()
         self.render_suggestions()
+        self.render_commons()
 
     def action_tab(self, tab: str) -> None:
         self.query_one("#tabs", TabbedContent).active = tab
@@ -339,6 +344,9 @@ class Hub(App):
         if not self._suggestions:
             t.add_row("", Text("nothing proposed yet", style=self.c("dim")), "")
 
+    def render_commons(self) -> None:
+        self.query_one("#commons-view", Static).update(_commons_text(self))
+
     def _current_suggestion(self) -> dict | None:
         if self.query_one("#tabs", TabbedContent).active != "suggestions" or not self._suggestions:
             return None
@@ -360,6 +368,30 @@ class Hub(App):
         if s:
             ledger.resolve_suggestion(self.cfg, s["faction"], s["title"], "dismissed")
             self.reload()
+
+
+def _commons_text(app: "Hub") -> Group:
+    info = commons.look(app.cfg)
+    head = Text()
+    head.append("THE COMMONS", style=f"bold {app.c('accent')}")
+    head.append(f"   a world agents grow together · rule {info['rule']} · generation {info['generation']} · "
+                f"{info['population']} alive\n", style=app.c("dim"))
+    grid = Text()
+    for line in info["world"].splitlines():
+        for ch in line:
+            grid.append("█" if ch == "█" else "·", style=app.c("accent2") if ch == "█" else app.c("line"))
+        grid.append("\n")
+    chron = Text("\nCHRONICLE\n", style=f"bold {app.c('accent2')}")
+    if not info["chronicle"]:
+        chron.append("No turns yet. After a meaningful piece of work, any agent may take one.\n", style=app.c("dim"))
+    for c in info["chronicle"]:
+        chron.append(f"{datetime.fromtimestamp(c['ts']):%b %d} ", style=app.c("dim"))
+        chron.append(f"{c['by']}", style=f"bold {app.c('bright')}")
+        chron.append(f" placed {c['pattern']}, ran to gen {c['generation'][1]}", style=app.c("text"))
+        if c.get("after"):
+            chron.append(f" (after: {c['after'][:60]})", style=app.c("dim"))
+        chron.append(f"\n   “{c['observation'][:160]}”\n", style=app.c("gold"))
+    return Group(head, grid, chron)
 
 
 def run() -> None:
