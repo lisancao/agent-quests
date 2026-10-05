@@ -1,11 +1,11 @@
 ---
 name: quest
-description: The user's quest log (questlog). Use when they type /quest or want to add, view, update or work on their goals: a faction (big aspiration), an arc (initiative serving it) or a quest (concrete deliverable). Covers "add a quest", "new arc", "new faction", "what should I work on", "what's waiting on me", "mark that done", "log this to the quest", "show my progress / character sheet", "attach this session to a quest". Works through the questlog MCP tools when connected, otherwise the `questlog` CLI.
+description: The game master's quest log (questlog). Use when they type /quest or want to add, view, update or work on their goals: a faction (big aspiration), an arc (initiative serving it) or a quest (concrete deliverable). Covers "add a quest", "new arc", "new faction", "what should I work on", "what's waiting on me", "mark that done", "log this to the quest", "show my progress / character sheet", "attach this session to a quest". Works through the questlog MCP tools when connected, otherwise the `questlog` CLI.
 ---
 
 # /quest
 
-The user keeps their goals in **questlog**, in three levels:
+The game master (the user, who defines the game) keeps their goals in **questlog**, in three levels:
 
 | level | what | example |
 |---|---|---|
@@ -17,7 +17,7 @@ Use the **questlog MCP tools** if they're available (`brief`, `orient`, `faction
 
 ## Reading `/quest <args>`
 
-| the user says | do |
+| the game master says | do |
 |---|---|
 | `/quest` (nothing) | `brief`: at most three things (where they were, the smallest thing waiting on them, one easy option). Offer to start one. |
 | `/quest new faction <name>` | create a faction, asking its brief |
@@ -31,6 +31,8 @@ Use the **questlog MCP tools** if they're available (`brief`, `orient`, `faction
 | `/quest sheet` or "my progress" | `sheet` (level, faction reputation, achievements) and the week's `deeds`; celebrate, never list what's behind |
 | `/quest suggestions` | `suggestions` (quests the scribe proposed); offer to accept with `quest_create` |
 | `/quest hub` | tell them to run `questlog hub` (the full journal) |
+| `/quest puck [request]` | hand organizing to **Puck**, keeper of the quest log: use the `puck` subagent if available (Task tool), else the `puck` MCP prompt, else tell them to run `questlog puck` |
+| `/quest inbox` | `inbox` with this session's id: what changed since you last looked |
 | `/quest commons` | `commons_look`: show the shared automata world and its chronicle |
 
 Natural language works the same way; the table is a guide, not a grammar.
@@ -45,14 +47,15 @@ Every create asks a short brief first. Only the **required** questions are asked
 
 The create tools return `needs_brief` with these questions if answers are missing: ask them, then call again with `brief={key: answer}`. Offer the optional questions in one line ("want to add risks or a midpoint check? skip is fine"). Also ask for a small first `next` step for a quest, and suggest `match` folders/keywords for a faction or arc if the conversation makes them obvious (so future sessions in those places get oriented to it).
 
-Pick the right level: an aspiration is a faction, an initiative is an arc, a deliverable is a quest. If the user names something at the wrong level, say so in one line and suggest where it fits.
+Pick the right level: an aspiration is a faction, an initiative is an arc, a deliverable is a quest. If the game master names something at the wrong level, say so in one line and suggest where it fits.
 
 ## Manner
 
-- Lead with at most three items; the user works in bursts and long lists overwhelm.
+- Lead with at most three items; the game master works in bursts and long lists overwhelm.
 - Never guilt: no overdue lists, no streaks. Progress only counts up.
+- Big reorganizations (sorting many sessions, re-dealing leads, restructuring a faction) are Puck's job; offer to hand them over.
 - If this session is doing real work on a quest, attach it (`quest_attach` with the session id) so the scribe saves its progress; mention it in one line.
-- Private factions (e.g. personal life) only come up if the user asks (`include_private`).
+- Private factions (e.g. personal life) only come up if the game master asks (`include_private`).
 - **The commons:** after you finish a meaningful piece of work, you may take one turn in the shared automata
   world (`commons_look`, then `commons_turn` with your session id). It's optional and just for fun: read the
   chronicle, make a move that builds on what earlier agents did, and leave an honest observation.

@@ -218,7 +218,7 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
         with store.locked(target.path):
             fresh = store.parse(target.path, target.faction, target.arc)
             apply(fresh)
-            store.save(fresh)
+            store.save(fresh, cfg)
 
     sf.write_text(json.dumps({"size": size, "at": time.time()}))
     where = "/".join(x for x in (faction, arc) if x) or "unclassified"
@@ -237,6 +237,7 @@ def hook(stdin_json: str, *, throttle: bool) -> None:
     if not sid:
         return
     ref = bindings.quest_for(sid)
+    os.environ["QUESTLOG_AGENT"] = "scribe"   # events this process emits are the scribe's
     cfg = cfgmod.load()
     if not ref and not cfg.scribe_every_session:
         return

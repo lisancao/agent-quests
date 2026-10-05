@@ -172,7 +172,9 @@ class Config:
     hub_theme: dict[str, str] = field(default_factory=dict)
     commons: dict = field(default_factory=dict)
     journal_theme: str = "codex"   # [journal] theme: codex | parchment
-    journal_voice: bool = False    # [journal] voice: scribe writes log entries and deeds as in-world prose   # [commons]: width, height, rule, max_steps, max_cells, enabled
+    journal_voice: bool = False    # [journal] voice: scribe writes log entries and deeds as in-world prose
+    nudge: bool = True             # [nudge] enabled: end-of-session prompt to update the quest log
+    puck_model: str = "sonnet"     # [puck] model: the model Puck runs on   # [commons]: width, height, rule, max_steps, max_cells, enabled
     scribe_command: list[str] = field(default_factory=lambda: [
         "claude", "-p", "--model", "haiku", "--no-session-persistence"])
     scribe_throttle_minutes: int = 20
@@ -303,6 +305,8 @@ def load(path: Path | None = None) -> Config:
     cfg.commons = {k: v for k, v in (raw.get("commons") or {}).items()
                    if k in ("width", "height", "rule", "max_steps", "max_cells", "enabled")}
 
+    cfg.nudge = bool((raw.get("nudge") or {}).get("enabled", cfg.nudge))
+    cfg.puck_model = str((raw.get("puck") or {}).get("model", cfg.puck_model))
     jr = raw.get("journal") or {}
     cfg.journal_theme = str(jr.get("theme", cfg.journal_theme))
     cfg.journal_voice = bool(jr.get("voice", cfg.journal_voice))

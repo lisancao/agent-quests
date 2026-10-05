@@ -252,6 +252,8 @@ class Hub(App):
         g, c = self.g, self.c
         t = Text()
         mark = {"blocked": ("✖", "bad"), "waiting": ("⏳", "warn"), "parked": (g("side"), "dim")}.get(q.status)
+        if q.status == "parked" and q.after:
+            mark = ("🔒", "dim")
         t.append(f"{mark[0] if mark else g('obj_open')} ", style=c(mark[1] if mark else "accent2"))
         t.append(q.title, style=c("dim") if q.status in ("parked", "done") else c("bright"))
         if q.reward and q.status != "done":
@@ -350,6 +352,8 @@ class Hub(App):
                 parts.append(Text(f"\n“{q.why}”\n", style=f"italic {c('gold')}"))
             if q.done:
                 parts.append(Text(f"Done when: {q.done}", style=c("text")))
+            if q.after:
+                parts.append(Text(f"{'Unlocks after' if q.status == 'parked' else 'Followed'}: {q.after}", style=c("dim")))
             parts.append(self._heading(self.L("objectives")))
             obj = Text()
             first_open = next((t for done_, t in q.objectives if not done_), None)

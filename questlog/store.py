@@ -43,7 +43,7 @@ from typing import Callable, Iterator
 
 from . import config as cfgmod
 
-FIELDS = ("title", "status", "lead", "done", "why", "next", "waiting", "size", "reward", "sessions", "cwd",
+FIELDS = ("title", "status", "lead", "done", "why", "next", "waiting", "size", "reward", "after", "sessions", "cwd",
           "match_paths", "match_keywords", "updated")
 SIZES = ("small", "medium", "large")
 NOTE_FILES = ("FACTION.md", "ARC.md")
@@ -65,6 +65,7 @@ class Quest:
     waiting: str = ""
     size: str = ""          # small | medium | large (rewards)
     reward: str = ""        # a loot milestone the human sets for themselves
+    after: str = ""         # prerequisites: comma-separated quest refs that must be done first
     match_paths: str = ""   # optional, comma-separated: sessions here serve this quest
     match_keywords: str = ""
     sessions: list[str] = field(default_factory=list)
@@ -74,6 +75,15 @@ class Quest:
     brief: str = ""         # answers from the creation brief (markdown)
     save_state: str = ""
     log: list[str] = field(default_factory=list)
+
+    @property
+    def current_objective(self) -> str:
+        """The first unticked objective: what the quest is on right now."""
+        return next((t for c, t in self.objectives if not c), "")
+
+    @property
+    def progress(self) -> str:
+        return f"{sum(c for c, _ in self.objectives)}/{len(self.objectives)}" if self.objectives else ""
 
     @property
     def slug(self) -> str:
@@ -86,7 +96,8 @@ class Quest:
     def to_dict(self, full: bool = True) -> dict:
         d = {"ref": self.ref, "faction": self.faction, "arc": self.arc, "title": self.title,
              "status": self.status, "lead": self.lead, "done": self.done, "why": self.why, "next": self.next,
-             "waiting": self.waiting, "size": self.size, "reward": self.reward, "updated": self.updated}
+             "waiting": self.waiting, "size": self.size, "reward": self.reward, "after": self.after,
+            "current": self.current_objective, "progress": self.progress, "updated": self.updated}
         if full:
             d |= {"objectives": [{"done": c, "text": t} for c, t in self.objectives],
                   "brief": self.brief, "save_state": self.save_state, "log": self.log[-10:], "sessions": self.sessions,
@@ -175,14 +186,45 @@ def _atomic_write(path: Path, text: str) -> None:
         raise
 
 
-def save(q: Quest) -> None:
-    # "waiting" on the human and the waiting status move together unless the status says otherwise.
+def save(q: Quest, cfg: cfgmod.Config | None = None, *, quiet: bool = False) -> None:
+    """Write a quest (caller holds its lock), then record what changed as events."""
+    # "waiting" on the game master and the waiting status move together unless the status says otherwise.
     if q.waiting and q.status == "active":
         q.status = "waiting"
     elif not q.waiting and q.status == "waiting":
         q.status = "active"
     q.updated = date.today().isoformat()
+    old = None
+    if q.path.exists():
+        try:
+            old = parse(q.path, q.faction, q.arc)
+        except OSError:
+            old = None
     _atomic_write(q.path, render(q))
+    if quiet:
+        return
+    cfg = cfg or cfgmod.load()
+    from . import events
+    for ev in events.diff(cfg, old, q):
+        events.emit(cfg, ev.pop("kind"), **ev)
+    if q.status == "done" and (old is None or old.status != "done"):
+        _unlock_dependents(cfg, q)
+
+
+def _unlock_dependents(cfg: cfgmod.Config, finished: Quest) -> None:
+    """Quests waiting on `finished` (via `after:`) become active once all their prerequisites are done."""
+    for d in load(cfg):
+        if d.status != "parked" or not d.after:
+            continue
+        reqs = [r.strip() for r in d.after.split(",") if r.strip()]
+        if not any(r in (finished.ref, finished.slug) for r in reqs):
+            continue
+        if all((x := find(r, cfg)) is not None and x.status == "done" for r in reqs):
+            with locked(d.path):
+                fresh = parse(d.path, d.faction, d.arc)
+                fresh.status = "active"
+                fresh.log.append(f"{date.today().isoformat()}: unlocked; prerequisites done ({', '.join(reqs)})")
+                save(fresh, cfg)
 
 
 def update(ref: str, fn: Callable[[Quest], None], cfg: cfgmod.Config | None = None) -> Quest:
@@ -193,7 +235,7 @@ def update(ref: str, fn: Callable[[Quest], None], cfg: cfgmod.Config | None = No
     with locked(q.path):
         q = parse(q.path, q.faction, q.arc)  # re-read inside the lock
         fn(q)
-        save(q)
+        save(q, cfg)
     return q
 
 
@@ -330,7 +372,7 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
 
 def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done: str = "", next: str = "",
            lead: str = "", waiting: str = "", objectives: list[str] | None = None, cwd: str = "",
-           why: str = "", size: str = "", reward: str = "", brief: dict | None = None) -> Quest:
+           why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "") -> Quest:
     answers = dict(brief or {})
     done = done or answers.get("done", "")
     why = why or answers.get("why", "")
@@ -349,9 +391,14 @@ def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done:
     q = Quest(path=path, faction=faction, arc=arc, title=title, done=done, why=why, next=next, waiting=waiting,
               lead=lead or (f.lead if f else ""), cwd=cwd, size=size if size in SIZES else "", reward=reward,
               brief=brief_markdown(answers, qs),
-              status="waiting" if waiting else "active",
+              status="parked" if _unmet(cfg, after) else ("waiting" if waiting else "active"), after=after,
               objectives=[(False, o) for o in (objectives or [])])
     q.log.append(f"{date.today().isoformat()}: created")
     with locked(path):
-        save(q)
+        save(q, cfg)
     return q
+
+
+def _unmet(cfg: cfgmod.Config, after: str) -> bool:
+    reqs = [r.strip() for r in (after or "").split(",") if r.strip()]
+    return any((x := find(r, cfg)) is None or x.status != "done" for r in reqs)

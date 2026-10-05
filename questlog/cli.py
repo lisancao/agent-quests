@@ -279,8 +279,37 @@ def cmd_standing(a) -> int:
     return 0
 
 
-def cmd_steward(a) -> int:
-    print(views.steward_prompt())
+def cmd_puck(a) -> int:
+    """Talk to Puck: launches Claude Code with Puck's role and model (or prints the prompt for other agents)."""
+    import shutil
+    import tempfile
+    cfg = cfgmod.load()
+    prompt = views.puck_prompt(cfg)
+    if a.print or not shutil.which("claude"):
+        print(prompt)
+        return 0
+    pf = Path(tempfile.gettempdir()) / "questlog-puck-prompt.md"
+    pf.write_text(prompt)
+    env = {**os.environ, "QUESTLOG_AGENT": "puck"}
+    cmd = ["claude", "--model", a.model or cfg.puck_model, "-n", "puck", "--append-system-prompt-file", str(pf)]
+    if a.request:
+        cmd.append(" ".join(a.request))
+    os.chdir(cfg.root if cfg.root.exists() else Path.home())
+    os.execvpe(cmd[0], cmd, env)
+
+
+def cmd_inbox(a) -> int:
+    from . import inbox
+    evs = inbox.read(a.session_id, a.agent or "", advance=not a.peek)
+    print(inbox.render(evs, limit=30) if evs else "nothing new")
+    return 0
+
+
+def cmd_nudge(a) -> int:
+    from . import nudge
+    out = nudge.hook(sys.stdin.read())   # Stop hook: prints a block decision at most once per session
+    if out:
+        print(out)
     return 0
 
 
@@ -357,7 +386,14 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_waiting)
     s = sub.add_parser("standing", help="progress per faction"); s.add_argument("faction", nargs="?")
     s.add_argument("--all", action="store_true"); s.set_defaults(fn=cmd_standing)
-    s = sub.add_parser("steward", help="print the steward prompt"); s.set_defaults(fn=cmd_steward)
+    s = sub.add_parser("puck", help="talk to Puck, keeper of the quest log (Claude Code), or --print its prompt")
+    s.add_argument("request", nargs="*"); s.add_argument("--print", action="store_true"); s.add_argument("--model")
+    s.set_defaults(fn=cmd_puck)
+    s = sub.add_parser("inbox", help="events relevant to a session since it last looked")
+    s.add_argument("session_id"); s.add_argument("--agent"); s.add_argument("--peek", action="store_true")
+    s.set_defaults(fn=cmd_inbox)
+    s = sub.add_parser("nudge", help="Stop hook: once per session, ask the agent to update its quest")
+    s.set_defaults(fn=cmd_nudge)
     s = sub.add_parser("scribe", help="update a quest from a session (hook mode reads JSON on stdin)")
     s.add_argument("session_id", nargs="?"); s.add_argument("--quest"); s.add_argument("--throttle", action="store_true")
     s.set_defaults(fn=cmd_scribe)

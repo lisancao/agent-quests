@@ -199,6 +199,31 @@ Optional ones (approach, who cares, risks, size, a midpoint check) can be answer
 
 Everything is derived from the files and the ledger. Nothing decays: no streaks, no overdue lists, no penalties.
 
+## The game master and Puck
+
+**You are the game master:** you define the game (factions, arcs, quests, what done means). Agents play it.
+
+**Puck, keeper of the quest log,** is a dedicated agent that sits between you and the players. It doesn't do quests; it:
+
+- helps you **define the game**: puts each idea at the right level and asks its brief;
+- **deals out quests**: picks a lead for each quest by your agents' strengths and chains dependent work with `after`, so the next quest activates by itself when its prerequisite is done;
+- **tags and organizes**: sorts unsorted sessions onto the quests they served, turns rumours into quests or dismisses them, merges duplicates, closes quests whose definition of done is met;
+- **watches the board** and surfaces at most three things.
+
+Run it with `questlog puck` (Claude Code, on Sonnet by default; `[puck] model` changes it), delegate to the `puck` subagent (`agents/puck.md`, link it into `~/.claude/agents/`), use the `puck` MCP prompt from any client, or run it as an omnigent agent (`examples/omnigent/puck.yaml`).
+
+## Events, the inbox, and nudges
+
+Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`: `quest_added`, `activated`, `assigned`, `objective_done`, `blocked`, `unblocked`, `waiting`, `answered`, `completed`, `parked`. Each agent session has an **inbox**: the events about its quest, its arc, its faction's big news, and quests its agent leads, since it last looked.
+
+- **Claude Code:** the `orient` hook orients a session on its first prompt, then on later prompts adds a short *Since you last looked* note, only when something relevant changed (for example, "`lair/install-the-shark-tank` completed; `lair/rehearse-the-monologue` is now active").
+- **Any MCP agent:** `inbox(session_id, agent)`.
+- **The game master:** toasts in the hub.
+
+**Nudges.** Once per session, at the end, the `nudge` Stop hook asks the agent to leave the log better than it found it, but only if there's a reason: the bound quest wasn't updated this session, it has no next step, or every objective is ticked but it's still open. An unbound session that clearly served a goal is asked to attach itself or propose a quest. It never fires twice, and never while the agent is already continuing. `[nudge] enabled = false` turns it off.
+
+**Prerequisites.** `after: <quest ref>[, …]` keeps a quest parked (shown locked in the journal) until its prerequisites are done; then it activates and the lead hears about it in its inbox. Each quest also exposes its **current objective** (the first unticked one) and progress (`2/4`), which orientation shows.
+
 ## The journal
 
 `questlog hub` (or `/quest hub`) opens a terminal quest journal: main quests (factions › questlines with progress pips › quests), side quests and completed ones on the left; the selected quest's page on the right, with its flavour line (why), definition of done, objectives with the current one marked, notes, journal entries and reward. Other pages: **Character** (level, reputation, achievements, inventory), **Codex** (faction lore and your agents as allies), **Chronicle** (deeds), **Party** (recent sessions), **Commons** and **Rumours** (quests the scribe thinks should exist).
@@ -267,7 +292,8 @@ Claude Code hooks (`~/.claude/settings.json`):
 
 ```json
 "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "questlog orient"}]}],
-"Stop":             [{"hooks": [{"type": "command", "command": "questlog scribe --throttle", "async": true}]}],
+"Stop":             [{"hooks": [{"type": "command", "command": "questlog nudge"},
+                                {"type": "command", "command": "questlog scribe --throttle", "async": true}]}],
 "SessionEnd":       [{"hooks": [{"type": "command", "command": "questlog scribe", "async": true}]}]
 ```
 
@@ -295,7 +321,7 @@ questlog arc overlord lair --name "Build the volcano lair"        # asks the bri
 questlog new overlord "Install the shark tank" --arc lair         # asks the brief
 ```
 
-**MCP tools:** `orient`, `faction_create`, `commons_look`, `commons_turn`, `brief`, `mine`, `waiting_on_human`, `factions`, `standing`, `sheet`, `deeds`, `suggestions`, `recall`, `quest_list`, `quest_get`, `arc_create`, `quest_create`, `quest_update`, `objective_check`, `quest_log`, `quest_attach`. **Prompts:** `steward` (a planning partner that organises factions, arcs and quests without doing the work), `new_arc`, `new_quest`.
+**MCP tools:** `orient`, `inbox`, `faction_create`, `unsorted_sessions`, `rumour_resolve`, `commons_look`, `commons_turn`, `brief`, `mine`, `waiting_on_human`, `factions`, `standing`, `sheet`, `deeds`, `suggestions`, `recall`, `quest_list`, `quest_get`, `arc_create`, `quest_create`, `quest_update`, `objective_check`, `quest_log`, `quest_attach`. **Prompts:** `puck` (become Puck, keeper of the quest log), `new_arc`, `new_quest`.
 
 ## Plug it into your agents
 
@@ -304,7 +330,7 @@ questlog speaks MCP over stdio (`questlog serve`), so any MCP-capable agent can 
 | harness | goals + state over MCP | orientation on the first prompt | scribe after the session | `/quest` |
 |---|---|---|---|---|
 | **Claude Code** | ✅ | ✅ hook | ✅ hooks | ✅ skill |
-| **Omnigent agents** (e.g. its polly orchestrator, custom YAML agents) | ✅ | via the `orient` tool | not yet (needs an omnigent transcript adapter) | `new_quest` / `new_arc` / `steward` prompts |
+| **Omnigent agents** (e.g. its polly orchestrator, custom YAML agents) | ✅ | via the `orient` tool | not yet (needs an omnigent transcript adapter) | `new_quest` / `new_arc` / `puck` prompts |
 | **Other MCP clients** (Codex, Cursor, OpenCode, Claude Desktop…) | ✅ | via the `orient` tool | not yet | prompts, where the client supports them |
 | **Your own code** | Python API | `orient.briefing()` | `scribe.core.run()` | n/a |
 
@@ -317,7 +343,7 @@ claude mcp add -s user questlog -- questlog serve
 ln -s "$PWD/skills/quest" ~/.claude/skills/quest
 ```
 
-plus the three hooks under [Setup](#setup) (`orient`, and the scribe on `Stop` / `SessionEnd`).
+plus the hooks under [Setup](#setup): `orient` (orientation and inbox), `nudge` and the scribe.
 
 ### Omnigent
 

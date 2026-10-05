@@ -41,6 +41,12 @@ achievements = [
 theme = "codex"       # or "parchment"
 voice = true          # scribe writes journal entries and deeds as in-world prose
 
+[puck]
+model = "sonnet"      # the model Puck runs on in Claude Code
+
+[nudge]
+enabled = true        # once per session, ask the agent to update its quest before stopping
+
 [hub]
 launch = ""             # e.g. "my-terminal-launcher {ref}"; empty shows the briefing to copy
 

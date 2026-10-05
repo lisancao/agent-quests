@@ -33,7 +33,8 @@ def _siblings(cfg: cfgmod.Config, faction: str, arc: str, exclude: str) -> list[
     return out
 
 
-def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: str = "") -> str:
+def resolve(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: str = "") -> "match.Hit | None":
+    """Which goal this session serves: its bound quest, what the ledger says, or the best match."""
     hit = None
     bound = bindings.quest_for(session_id) if session_id else None
     if bound:
@@ -46,7 +47,12 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
             hit = match.Hit(prior["faction"], prior.get("arc", ""), (prior.get("quests") or [""])[0], 5, "seen before")
     if hit is None:
         hit = match.best(cfg, cwd=cwd, text=prompt)
+    return hit
 
+
+def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: str = "",
+             hit: "match.Hit | None" = None) -> str:
+    hit = hit or resolve(cfg, session_id, cwd, prompt)
     lines: list[str] = []
     if hit and hit.score >= match.STRONG:
         f = cfg.faction(hit.faction)
@@ -63,7 +69,8 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
         q = store.find(hit.quest, cfg) if hit.quest else None
         if q:
             lines.append(f"- Quest `{q.ref}`: {q.title}. Why: {_short(q.why, 120) or '-'}. "
-                         f"Done when: {_short(q.done, 120) or '-'}. Next: {_short(q.next, 120) or '-'}")
+                         f"Done when: {_short(q.done, 120) or '-'}. Next: {_short(q.next, 120) or '-'}"
+                         + (f". Objective {q.progress}: {q.current_objective}" if q.current_objective else ""))
         elif f:
             open_q = [x for x in store.load(cfg, faction=f.id, arc=hit.arc or None) if x.status in ("active", "blocked", "waiting")]
             if open_q:
@@ -93,8 +100,9 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
 
 
 def hook(stdin_json: str) -> str | None:
-    """UserPromptSubmit hook: orient once per session. Returns hook JSON or None."""
+    """UserPromptSubmit hook. First prompt: orientation. Later prompts: what changed since, if anything."""
     import os
+    from . import inbox
     if os.environ.get("QUESTLOG_SCRIBE"):
         return None
     try:
@@ -104,18 +112,28 @@ def hook(stdin_json: str) -> str | None:
     sid = data.get("session_id") or ""
     STATE.mkdir(parents=True, exist_ok=True)
     mark = STATE / f"{sid or 'none'}"
-    if sid and mark.exists():
-        return None
     cfg = cfgmod.load()
-    text = briefing(cfg, sid, data.get("cwd", ""), data.get("prompt", ""))
-    if sid:
-        mark.write_text(str(time.time()))
-        # Old marks only matter during a session's life.
-        cutoff = time.time() - 14 * 86400
-        for m in STATE.iterdir():
-            try:
-                if m.stat().st_mtime < cutoff:
-                    m.unlink()
-            except OSError:
-                pass
+    agent = os.environ.get("QUESTLOG_AGENT", "")
+    if sid and mark.exists():
+        evs = inbox.read(sid, agent, cfg)
+        if not evs:
+            return None
+        text = ("## Since you last looked (questlog)\n" + inbox.render(evs) +
+                "\nIf any of this changes your plan, say so; keep the quest current with `quest_update`.")
+    else:
+        hit = resolve(cfg, sid, data.get("cwd", ""), data.get("prompt", ""))
+        text = briefing(cfg, sid, data.get("cwd", ""), data.get("prompt", ""), hit=hit)
+        if sid:
+            mark.write_text(str(time.time()))
+            if hit and hit.score >= match.STRONG:
+                inbox.set_scope(sid, hit.faction, hit.arc, hit.quest, agent)
+            else:
+                inbox.set_scope(sid, agent=agent)
+            cutoff = time.time() - 14 * 86400   # marks only matter during a session's life
+            for m in STATE.iterdir():
+                try:
+                    if m.stat().st_mtime < cutoff:
+                        m.unlink()
+                except OSError:
+                    pass
     return json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": text}})

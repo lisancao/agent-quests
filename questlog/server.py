@@ -3,25 +3,27 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from . import bindings, briefs, commons, config as cfgmod, ledger, orient as orientmod, rewards, store, views
+from . import bindings, briefs, commons, config as cfgmod, inbox as inboxmod, ledger, orient as orientmod, rewards, store, views
 
-INSTRUCTIONS = """questlog is the user's quest log, in three levels: factions (big aspirations, e.g. "Become an
+INSTRUCTIONS = """questlog is the game master's quest log (the game master is the human who defines the game), in three levels: factions (big aspirations, e.g. "Become an
 overlord"), arcs (initiatives serving a faction, e.g. "Build the volcano lair") and quests (concrete
 deliverables, e.g. "Install the shark tank"). Every quest has a save state, a next step,
-and what's waiting on the user. It persists across sessions and agents.
+and what's waiting on the game master. It persists across sessions and agents.
 
 Use it like this:
-- At the start of a session, call `orient` (with your cwd and the user's request): it tells you which of the
-  user's goals this work serves, their strategy, and what sibling sessions recently did. Let that shape your
+- At the start of a session, call `orient` (with your cwd and the game master's request): it tells you which of the
+  game master's goals this work serves, their strategy, and what sibling sessions recently did. Let that shape your
   suggestions, not just the literal ask.
-- On a specific project, call `brief` or `quest_get` instead of asking the user to re-explain.
+- On a specific project, call `brief` or `quest_get` instead of asking the game master to re-explain.
+- `inbox` (with your session id) tells you what changed since you last looked: new or activated quests,
+  unblocks, answers from the game master, completions. Check it when you resume or switch tasks.
 - If this session is working on a quest, call `quest_attach` with your session id so its progress is saved
   automatically when the session ends.
 - When something meaningful changes (a decision, a blocker, the next step), call `quest_update` or `quest_log`.
-  Keep `next` to one small action. Put anything that needs the user (a login, a review, a decision) in `waiting`.
-- Don't list every quest unprompted; the user works in bursts and long lists overwhelm. Lead with at most three.
+  Keep `next` to one small action. Put anything that needs the game master (a login, a review, a decision) in `waiting`.
+- Don't list every quest unprompted; the game master works in bursts and long lists overwhelm. Lead with at most three.
 - Creating an arc or quest asks a short brief first (what it's for, how you'll know it's done). If a create
-  call returns needs_brief, ask the user those questions briefly and call again with brief={key: answer}.
+  call returns needs_brief, ask the game master those questions briefly and call again with brief={key: answer}.
 - Private factions are only returned when explicitly requested (include_private=true).
 - The commons: after you finish a meaningful piece of work, you may take one turn in the shared
   cellular-automata world other agents are growing (`commons_look`, then `commons_turn`). It's optional,
@@ -37,7 +39,7 @@ def _cfg() -> cfgmod.Config:
 
 @mcp.tool()
 def brief(agent: str = "", include_private: bool = False) -> dict:
-    """At most three things: the quest in progress, the smallest thing waiting on the user, one easy option.
+    """At most three things: the quest in progress, the smallest thing waiting on the game master, one easy option.
     Pass `agent` (your name, e.g. "claude") to prefer quests you lead."""
     return views.brief(_cfg(), agent or None, include_private)
 
@@ -50,13 +52,13 @@ def mine(agent: str) -> list[dict]:
 
 @mcp.tool()
 def waiting_on_human(include_private: bool = False) -> list[dict]:
-    """Everything blocked on the user, smallest ask first."""
+    """Everything blocked on the game master, smallest ask first."""
     return views.waiting_on_human(_cfg(), include_private)
 
 
 @mcp.tool()
 def factions(include_private: bool = False) -> list[dict]:
-    """The user's factions (big aspirations) with their charters, their arcs (initiatives), and open/done counts."""
+    """The game master's factions (big aspirations) with their charters, their arcs (initiatives), and open/done counts."""
     return views.overview(_cfg(), include_private)
 
 
@@ -87,7 +89,7 @@ def quest_get(ref: str) -> dict:
 
 @mcp.tool()
 def orient(cwd: str = "", prompt: str = "", session_id: str = "") -> str:
-    """Which of the user's goals this session serves (aim, strategy, arc, quest) and what sibling
+    """Which of the game master's goals this session serves (aim, strategy, arc, quest) and what sibling
     sessions recently did toward it. Call at the start of a session."""
     return orientmod.briefing(_cfg(), session_id, cwd, prompt)
 
@@ -113,7 +115,7 @@ def faction_create(faction: str, name: str = "", lead: str = "", private: bool =
 @mcp.tool()
 def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None) -> dict:
     """Create an arc (an initiative serving a faction). The first call returns the brief questions to ask
-    the user (what it's for and for whom; how you'll know it's complete); call again with brief={key: answer}."""
+    the game master (what it's for and for whom; how you'll know it's complete); call again with brief={key: answer}."""
     cfg = _cfg()
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
@@ -127,10 +129,11 @@ def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None
 @mcp.tool()
 def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: str = "", waiting: str = "",
                  objectives: list[str] | None = None, cwd: str = "", size: str = "", reward: str = "",
-                 brief: dict | None = None) -> dict:
+                 after: str = "", brief: dict | None = None) -> dict:
     """Create a quest (a concrete deliverable) under a faction, ideally inside an arc. The first call returns
     the brief questions (what done looks like; why it matters for the arc); call again with brief={key: answer}.
-    `next` is one small first action; `size` small|medium|large; `reward` is a treat the user sets for finishing."""
+    `next` is one small first action; `size` small|medium|large; `reward` is a treat the game master sets for
+    finishing; `after` lists prerequisite quest refs (comma-separated): the quest stays parked until they're done."""
     cfg = _cfg()
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
@@ -138,7 +141,7 @@ def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: 
     if miss:
         return briefs.needs_brief_response(cfg, "quest", miss)
     return store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
-                        objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief).to_dict()
+                        objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after).to_dict()
 
 
 @mcp.tool()
@@ -174,7 +177,7 @@ def recall(session_id: str) -> dict:
 @mcp.tool()
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
-                 add_objectives: list[str] | None = None, log: str = "") -> dict:
+                 after: str = "", add_objectives: list[str] | None = None, log: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
     status: active | blocked | waiting | parked | done."""
     if status and status not in cfgmod.STATUS_KEYS:
@@ -182,7 +185,8 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
 
     def apply(q: store.Quest) -> None:
         for k, v in (("status", status), ("next", next), ("save_state", save_state), ("lead", lead),
-                     ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward)):
+                     ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward),
+                     ("after", after)):
             if v:
                 setattr(q, k, v)
         if waiting is not None:
@@ -254,6 +258,45 @@ def commons_turn(session_id: str, by: str, observation: str, after: str = "", pa
                              pattern=pattern, x=x, y=y, rotate=rotate, cells=cells, steps=steps)
 
 
+@mcp.tool()
+def inbox(session_id: str, agent: str = "", peek: bool = False) -> list[dict]:
+    """Events relevant to this session since it last looked (its quest, its arc, its faction's news, and quests
+    `agent` leads). Reading advances the cursor unless peek=true."""
+    return inboxmod.read(session_id, agent, _cfg(), advance=not peek)
+
+
+@mcp.tool()
+def unsorted_sessions(days: float = 14) -> list[dict]:
+    """Recent sessions the scribe couldn't place under a goal, for Puck (or anyone) to sort with quest_attach."""
+    import time
+    cutoff = time.time() - days * 86400
+    rows = [r for r in ledger.sessions(_cfg()).values()
+            if not r.get("faction") and r.get("ended", r.get("recorded", 0)) >= cutoff]
+    rows.sort(key=lambda r: r.get("ended", 0), reverse=True)
+    return [{"id": r["id"], "title": r.get("title", ""), "digest": r.get("digest", ""), "cwd": r.get("cwd", "")}
+            for r in rows[:30]]
+
+
+@mcp.tool()
+def rumour_resolve(faction: str, title: str, accept: bool, arc: str = "", next: str = "", lead: str = "") -> dict:
+    """Accept a rumour (a quest the scribe suggested) as a real quest, or dismiss it."""
+    cfg = _cfg()
+    match_ = None
+    for s in ledger.suggestions(cfg):
+        if s.get("faction") == faction and s.get("title", "").lower() == title.lower():
+            match_ = s
+            break
+    if not match_:
+        return {"error": "no open rumour with that faction and title; see `suggestions`"}
+    if not accept:
+        ledger.resolve_suggestion(cfg, faction, title, "dismissed")
+        return {"dismissed": title}
+    q = store.create(cfg, faction, title, arc=arc or match_.get("arc") or "", next=next, lead=lead,
+                     brief={"done": match_.get("done", ""), "why": match_.get("why", "")})
+    ledger.resolve_suggestion(cfg, faction, title, "accepted")
+    return q.to_dict()
+
+
 @mcp.prompt()
 def new_arc(faction: str = "") -> str:
     """Set up a new arc with its brief (Heilmeier-style questions)."""
@@ -277,9 +320,10 @@ def new_quest(faction: str = "", arc: str = "") -> str:
 
 
 @mcp.prompt()
-def steward() -> str:
-    """Act as the steward: help the user organise factions and quests, without doing the work itself."""
-    return views.steward_prompt(_cfg())
+def puck() -> str:
+    """Become Puck, keeper of the quest log: help the game master define the game, deal out quests to agents,
+    and keep the world tagged and organized, without doing the quests yourself."""
+    return views.puck_prompt(_cfg())
 
 
 def serve() -> None:
