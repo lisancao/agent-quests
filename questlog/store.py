@@ -205,17 +205,21 @@ def save(q: Quest, cfg: cfgmod.Config | None = None, *, quiet: bool = False) -> 
     elif not q.waiting and q.status == "waiting":
         q.status = "active"
     q.updated = date.today().isoformat()
-    old = None
+    old, prior = None, None
     if q.path.exists():
         try:
+            prior = q.path.read_text()
             old = parse(q.path, q.faction, q.arc)
         except OSError:
             old = None
-    _atomic_write(q.path, render(q))
+    new = render(q)
+    _atomic_write(q.path, new)
+    cfg = cfg or cfgmod.load()
+    from . import audit, events
+    fresh_log = q.log[-1].split(": ", 1)[-1] if q.log and (old is None or q.log != old.log) else ""
+    audit.record(cfg, q.path, prior, new, ref=q.ref, reason=fresh_log)
     if quiet:
         return
-    cfg = cfg or cfgmod.load()
-    from . import events
     for ev in events.diff(cfg, old, q):
         events.emit(cfg, ev.pop("kind"), **ev)
     if q.status == "done" and (old is None or old.status != "done"):
@@ -345,7 +349,10 @@ def create_faction(cfg: cfgmod.Config, fid: str, name: str = "", *, lead: str = 
         bm = brief_markdown(answers, qs)
         if bm:
             body += f"\n## Brief\n{bm}\n"
-        _atomic_write(note, "---\n" + "\n".join(fm) + "\n---\n" + body)
+        text = "---\n" + "\n".join(fm) + "\n---\n" + body
+        _atomic_write(note, text)
+        from . import audit
+        audit.record(cfg, note, None, text, ref=d.name, reason="created")
     return d
 
 
@@ -379,7 +386,10 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
         bm = brief_markdown(answers, qs)
         if bm:
             body += f"\n## Brief\n{bm}\n"
-        _atomic_write(note, "---\n" + "\n".join(fm) + "\n---\n" + body)
+        text = "---\n" + "\n".join(fm) + "\n---\n" + body
+        _atomic_write(note, text)
+        from . import audit
+        audit.record(cfg, note, None, text, ref=f"{faction}/{d.name}", reason="created")
     return d
 
 

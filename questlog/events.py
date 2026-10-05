@@ -6,7 +6,7 @@ which reaches them on their next prompt, in MCP responses, and in the hub's toas
 
 Kinds: quest_added, activated (became active, e.g. its prerequisites were met), assigned (new lead),
 objective_done, blocked, unblocked, waiting (needs the game master), answered (waiting cleared),
-completed, parked, suggested.
+completed, parked, suggested, reverted (an audited edit was undone).
 """
 from __future__ import annotations
 

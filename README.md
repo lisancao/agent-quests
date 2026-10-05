@@ -228,6 +228,8 @@ Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`:
 
 **Write surfaces.** `surface: src/lair/clock/*.py, docs/clock.md` names what a quest edits. Working in a quest's surface orients the session to that quest, and when two open quests with different leads share a surface, `questlog conflicts` (MCP `conflicts`) flags them, as do orientation and the create/update responses, before two agents edit the same files blind. Sequence them with `after` or give both to one lead.
 
+**Audit and undo.** Every write to a quest, arc or faction is recorded in `.questlog/audit.jsonl` with who made it, why (`reason`, or the log line written with it), which fields changed, and the text before. `questlog audit [--by puck]` lists them; `questlog undo [id]` reverts one (or the latest), refusing if the file has changed since so a later edit is never silently lost. Puck passes a reason with every structural change, so its reorganizing is reviewable and reversible.
+
 **Advice for the next session.** The scribe ends each session record with one concrete sentence for whoever picks the work up next (the blocker, the file, the command), and the next session on that quest sees it in its orientation.
 
 ## The journal

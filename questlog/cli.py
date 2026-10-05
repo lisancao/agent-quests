@@ -216,6 +216,29 @@ def cmd_hub(a) -> int:
     return 0
 
 
+def cmd_audit(a) -> int:
+    from datetime import datetime
+    from . import audit
+    for e in audit.recent(cfgmod.load(), limit=a.n, by=a.by or "", ref=a.ref or ""):
+        when = datetime.fromtimestamp(e["ts"]).strftime("%b %d %H:%M")
+        mark = " (undone)" if e["undone"] else ""
+        print(f"{e['id']}  {when}  {e.get('by') or '-':<9} {e['kind']:<6} {e.get('ref') or e['path']}{mark}")
+        detail = ", ".join(e.get("changed") or [])
+        if e.get("reason") or detail:
+            print(f"          {e.get('reason') or ''}" + (f"  [{detail}]" if detail else ""))
+    return 0
+
+
+def cmd_undo(a) -> int:
+    from . import audit
+    r = audit.undo(cfgmod.load(), a.id or "", by=a.by or "", force=a.force)
+    if "error" in r:
+        print(r["error"], file=sys.stderr)
+        return 1
+    print(f"undid {r['undone']} ({r['kind']} of {r['ref'] or r['path']}): {r['restored']}")
+    return 0
+
+
 def cmd_conflicts(a) -> int:
     rows = store.conflicts(cfgmod.load())
     for c in rows:
@@ -362,6 +385,12 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_new)
     s = sub.add_parser("conflicts", help="open quests with overlapping write surfaces and different leads")
     s.set_defaults(fn=cmd_conflicts)
+    s = sub.add_parser("audit", help="recent writes to quests, arcs and factions: who, what, why")
+    s.add_argument("-n", type=int, default=20); s.add_argument("--by", help="only this agent (e.g. puck)")
+    s.add_argument("--ref"); s.set_defaults(fn=cmd_audit)
+    s = sub.add_parser("undo", help="revert an audited write (the latest, or by id)")
+    s.add_argument("id", nargs="?"); s.add_argument("--by"); s.add_argument("--force", action="store_true")
+    s.set_defaults(fn=cmd_undo)
     s = sub.add_parser("faction", help="create a faction: questlog faction <id> --name ... (asks the brief)")
     s.add_argument("id"); s.add_argument("--name"); s.add_argument("--intent"); s.add_argument("--strategy")
     s.add_argument("--lead"); s.add_argument("--private", action="store_true")

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from . import bindings, briefs, commons, config as cfgmod, inbox as inboxmod, ledger, orient as orientmod, rewards, store, views
+from . import audit, bindings, briefs, commons, config as cfgmod, inbox as inboxmod, ledger, orient as orientmod, rewards, store, views
 
 INSTRUCTIONS = """questlog is the game master's quest log (the game master is the human who defines the game), in three levels: factions (big aspirations, e.g. "Become an
 overlord"), arcs (initiatives serving a faction, e.g. "Build the volcano lair") and quests (concrete
@@ -186,9 +186,11 @@ def recall(session_id: str) -> dict:
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
                  after: str = "", authority: str = "", surface: str = "", add_objectives: list[str] | None = None,
-                 log: str = "") -> dict:
+                 log: str = "", reason: str = "", agent: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
-    status: active | blocked | waiting | parked | done."""
+    status: active | blocked | waiting | parked | done. Every write is audited and can be undone; `reason`
+    says why (for structural changes: lead, scope, status, prerequisites), falling back to `log`; `agent` is
+    who you are (e.g. "puck"), recorded with the edit."""
     if status and status not in cfgmod.STATUS_KEYS:
         return {"error": f"status must be one of {cfgmod.STATUS_KEYS}"}
     notes: list[str] = []
@@ -220,7 +222,8 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
             q.log.append(f"{date.today().isoformat()}: {log}")
     cfg = _cfg()
     try:
-        q = store.update(ref, apply, cfg)
+        with audit.because(reason or log, agent):
+            q = store.update(ref, apply, cfg)
     except KeyError as e:
         return {"error": str(e)}
     out = q.to_dict()
@@ -229,6 +232,22 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
     if notes:
         out["notes"] = notes
     return out
+
+
+@mcp.tool()
+def audit_log(limit: int = 20, by: str = "", ref: str = "") -> list[dict]:
+    """Recent writes to quests, arcs and factions, newest first: who (by), what changed, why, and an id
+    that `undo` takes. Filter by agent (`by`, e.g. "puck") or by quest ref."""
+    return audit.recent(_cfg(), limit=limit, by=by, ref=ref)
+
+
+@mcp.tool()
+def undo(entry_id: str = "", by: str = "", agent: str = "") -> dict:
+    """Revert one audited write: `entry_id` from `audit_log`, or the latest one (by agent `by` if given).
+    Refuses if the file changed since; undo the later edits first. Ask the game master before undoing
+    anyone's work but your own."""
+    with audit.because("", agent):
+        return audit.undo(_cfg(), entry_id, by=by)
 
 
 @mcp.tool()
