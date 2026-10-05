@@ -9,9 +9,9 @@ The user keeps their goals in **questlog**, in three levels:
 
 | level | what | example |
 |---|---|---|
-| faction | a big aspiration or allegiance | Ship my indie game |
-| arc | an initiative that serves a faction | Build a playable demo |
-| quest | a concrete deliverable inside an arc | Finish level one |
+| faction | a big aspiration or allegiance | Become an overlord |
+| arc | an initiative that serves a faction | Build the volcano lair |
+| quest | a concrete deliverable inside an arc | Install the shark tank |
 
 Use the **questlog MCP tools** if they're available (`brief`, `orient`, `faction_create`, `arc_create`, `quest_create`, `quest_update`, `quest_log`, `quest_attach`, `quest_get`, `quest_list`, `waiting_on_human`, `sheet`, `deeds`, `suggestions`, `factions`). If not, use the `questlog` CLI (`questlog --help`); every operation exists there too.
 

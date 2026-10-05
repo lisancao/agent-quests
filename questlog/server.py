@@ -5,9 +5,9 @@ from mcp.server.fastmcp import FastMCP
 
 from . import bindings, briefs, config as cfgmod, ledger, orient as orientmod, rewards, store, views
 
-INSTRUCTIONS = """questlog is the user's quest log, in three levels: factions (big aspirations, e.g. "Ship my
-indie game"), arcs (initiatives serving a faction, e.g. "Build a playable demo") and quests (concrete
-deliverables, e.g. "Finish level one"). Every quest has a save state, a next step,
+INSTRUCTIONS = """questlog is the user's quest log, in three levels: factions (big aspirations, e.g. "Become an
+overlord"), arcs (initiatives serving a faction, e.g. "Build the volcano lair") and quests (concrete
+deliverables, e.g. "Install the shark tank"). Every quest has a save state, a next step,
 and what's waiting on the user. It persists across sessions and agents.
 
 Use it like this:
@@ -93,7 +93,7 @@ def orient(cwd: str = "", prompt: str = "", session_id: str = "") -> str:
 def faction_create(faction: str, name: str = "", lead: str = "", private: bool = False,
                    match_paths: list[str] | None = None, match_keywords: list[str] | None = None,
                    brief: dict | None = None) -> dict:
-    """Create a faction (a big aspiration, e.g. "Ship my indie game"). The first call returns the brief
+    """Create a faction (a big aspiration, e.g. "Become an overlord"). The first call returns the brief
     questions (what you want, in your words; how you'll get there and for whom); call again with
     brief={key: answer}. match_paths / match_keywords say which sessions serve it."""
     cfg = _cfg()

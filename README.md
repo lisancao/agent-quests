@@ -22,7 +22,7 @@ Agents are good at the task in front of them and blind to why it matters. Every 
 
 questlog gives every agent session two things, automatically, from whatever context it's in:
 
-- **Contextual goals:** which of your goals this work serves (matched from the folder it's working in, the files it touches and what you ask), your aim and strategy for that goal, and the definition of done. A session fixing a bug in your game's level editor knows you're trying to ship a playable demo for a festival deadline, so it flags that the bug blocks level one, not just the stack trace you pasted.
+- **Contextual goals:** which of your goals this work serves (matched from the folder it's working in, the files it touches and what you ask), your aim and strategy for that goal, and the definition of done. A session debugging your lair's trapdoor knows you're building toward a final showdown, so it flags that the trapdoor is the first thing the heroes will test, not just the wiring diagram you pasted.
 - **State:** where the work stands (save state, the next step, what's waiting on you) and what recent **sibling sessions** on the same goal did and decided, so no session starts from zero and parallel sessions stop working in silos.
 
 And it keeps that state current without anyone taking notes: a scribe reads each session afterwards and records what it accomplished against your goals.
@@ -34,15 +34,15 @@ For you, the same data becomes a quest journal with an RPG reward layer, so seei
 On a session's first prompt (Claude Code hook, or the `orient` MCP tool for any agent):
 
 ```
-## Orientation (questlog): this session likely serves **Ship my indie game** › **Build a playable demo**  (working in its folder)
-- Sam's aim: Ship a small, finished game people actually play
-- Strategy: Scope down hard; one polished level beats five rough ones; playtest every week
-- Arc goal: A demo good enough for the spring festival. Complete when: three levels, a menu, a build that runs on a stranger's laptop
-- Quest `indie-game/demo/finish-level-one`: Finish level one. Why: it's the first thing every player sees.
-  Done when: playable start to finish with no placeholder art. Next: fix the collision bug on the bridge
+## Orientation (questlog): this session likely serves **Become an overlord** › **Build the volcano lair**  (working in its folder)
+- Sam's aim: Rule the world, eventually, with style
+- Strategy: Start with one island; a lair before an army; never monologue before the trap is armed
+- Arc goal: A lair worthy of a final showdown. Complete when: shark tank, self-destruct button, and a dramatic entrance
+- Quest `overlord/lair/install-the-shark-tank`: Install the shark tank. Why: no lair is taken seriously without one.
+  Done when: sharks in, glass holds, trapdoor drops on cue. Next: fix the trapdoor that opens on its own
 Sibling sessions on the same goal (recent):
-- Mar 12 `5f2c91ab` Level editor fixes: tile snapping works; found the bridge collision bug, not yet fixed.
-- Mar 11 `a07d3e44` Playtest notes: two of three testers got stuck at the bridge; jump feels floaty.
+- Mar 12 `5f2c91ab` Trapdoor debugging: glass sealed; the trapdoor opens when the elevator passes, not yet fixed.
+- Mar 11 `a07d3e44` Henchman onboarding: drafted the jumpsuit policy; two recruits asked about dental.
 ```
 
 Contextual policies tell an agent what it may do here. Contextual goals tell it what it's here *for*.
@@ -79,9 +79,9 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
 
 | | what it is | example |
 |---|---|---|
-| **faction** | a big aspiration or allegiance | Ship my indie game |
-| **arc** | an initiative that serves a faction | Build a playable demo |
-| **quest** | a concrete deliverable inside an arc | Finish level one |
+| **faction** | a big aspiration or allegiance | Become an overlord |
+| **arc** | an initiative that serves a faction | Build the volcano lair |
+| **quest** | a concrete deliverable inside an arc | Install the shark tank |
 
 - **Factions** carry your `intent` (what you want, in your words), a `strategy` (how, for whom), and what `success_looks_like`. They're often ongoing.
 - **Arcs** carry a `goal`, a `strategy`, and a definition of complete (`complete_when`).
@@ -104,24 +104,24 @@ assistant = "personal life, routines, check-ins"
 # A faction is a big aspiration. intent + strategy are what agents get oriented to;
 # match decides which sessions it applies to (the folder they work in, the words they use).
 [[factions]]
-id = "indie-game"
-name = "Ship my indie game"
-intent = "Ship a small, finished game people actually play"
-strategy = "Scope down hard; one polished level beats five rough ones; playtest every week"
-success_looks_like = "Strangers finish the demo and ask when the full game is out"
+id = "overlord"
+name = "Become an overlord"
+intent = "Rule the world, eventually, with style"
+strategy = "Start with one island; a lair before an army; never monologue before the trap is armed"
+success_looks_like = 'Heroes start their sentences with "We have to stop..."'
 lead = "claude"
-match = { paths = ["~/games/starfall"], keywords = ["godot", "playtest", "devlog", "level"] }
+match = { paths = ["~/lair"], keywords = ["lair", "henchmen", "doomsday", "monologue"] }
 
 # Arcs are initiatives serving the faction, each with its own definition of complete.
 arcs = [
-  { id = "demo", name = "Build a playable demo", goal = "A demo good enough for the spring festival", complete_when = "Three levels, a menu, a build that runs on a stranger's laptop", match = { paths = ["~/games/starfall/levels"] } },
-  { id = "community", name = "Grow a player community", goal = "People who'd wishlist it on day one", complete_when = "A devlog every two weeks and 200 wishlists", match = { keywords = ["devlog", "discord", "wishlist"] } },
+  { id = "lair", name = "Build the volcano lair", goal = "A lair worthy of a final showdown", complete_when = "Shark tank, self-destruct button, and a dramatic entrance", match = { paths = ["~/lair/blueprints"] } },
+  { id = "henchmen", name = "Recruit henchmen", goal = "A loyal crew that reads the onboarding doc", complete_when = "Twelve henchmen, matching jumpsuits, nobody quits", match = { keywords = ["henchmen", "recruit", "jumpsuit"] } },
 ]
 
 [[factions]]
-id = "health"
-name = "Look after myself"
-intent = "Sleep, move, eat, and keep the admin from piling up"
+id = "self-care"
+name = "Villain self-care"
+intent = "Sleep, stretch, and stop answering the red phone after midnight"
 lead = "assistant"
 private = true                 # left out of orientation maps, briefs and the hub unless asked for
 
@@ -132,7 +132,7 @@ required = ["What does done look like, observably?", "Why does this matter for i
 level_divisor = 50
 tiers = [["Unknown", 0], ["Recognized", 100], ["Respected", 400], ["Renowned", 1200], ["Legend", 3000]]
 achievements = [
-  { name = "Shipped", description = "Five quests done for Ship my indie game", faction = "indie-game", quests_done = 5 },
+  { name = "Evil Genius", description = "Five quests done for Become an overlord", faction = "overlord", quests_done = 5 },
 ]
 
 [hub]
@@ -148,29 +148,29 @@ Factions and arcs can also be defined (or extended) in `FACTION.md` / `ARC.md` f
 
 ```markdown
 ---
-title: Finish level one
+title: Install the shark tank
 status: active
 lead: claude
-done: Playable start to finish with no placeholder art
-why: It's the first thing every player sees
-next: Fix the collision bug on the bridge
-waiting: Pick between the two jump tunings
+done: Sharks in, glass holds, trapdoor drops on cue
+why: No lair is taken seriously without one
+next: Fix the trapdoor that opens on its own
+waiting: Pick laser sharks or regular sharks
 size: medium
-reward: A day off to play someone else's game
+reward: A new cape
 ---
 ## Objectives
-- [x] Block out the layout
-- [x] Final tiles
-- [ ] Fix the bridge collision
-- [ ] Sound pass
+- [x] Dig the pit
+- [x] Install the glass
+- [ ] Fix the trapdoor
+- [ ] Sharks
 
 ## Save state
-Layout and tiles done. Bridge collision bug reproduced: the player clips through when landing mid-jump.
-Two jump tunings in branches jump-a and jump-b; playtesters split.
+Pit dug, glass installed and sealed. The trapdoor opens whenever the elevator passes; vibration sensor suspected.
+Laser shark vendor quoted twice the budget; regular sharks available Thursday.
 
 ## Log
 - 2026-03-10: created
-- 2026-03-12 `5f2c91ab`: tile snapping fixed; bridge collision bug found
+- 2026-03-12 `5f2c91ab`: glass sealed; found the trapdoor bug
 ```
 
 ## The loop
@@ -255,9 +255,9 @@ questlog tree                # factions -> arcs -> quests
 questlog brief               # at most three things
 questlog orient --cwd . --prompt "what I'm about to do"
 questlog deeds --days 7
-questlog faction indie-game --name "Ship my indie game"         # asks the brief
-questlog arc indie-game demo --name "Build a playable demo"     # asks the brief
-questlog new indie-game "Finish level one" --arc demo           # asks the brief
+questlog faction overlord --name "Become an overlord"            # asks the brief
+questlog arc overlord lair --name "Build the volcano lair"        # asks the brief
+questlog new overlord "Install the shark tank" --arc lair         # asks the brief
 ```
 
 **MCP tools:** `orient`, `faction_create`, `brief`, `mine`, `waiting_on_human`, `factions`, `standing`, `sheet`, `deeds`, `suggestions`, `recall`, `quest_list`, `quest_get`, `arc_create`, `quest_create`, `quest_update`, `objective_check`, `quest_log`, `quest_attach`. **Prompts:** `steward` (a planning partner that organises factions, arcs and quests without doing the work), `new_arc`, `new_quest`.
@@ -302,7 +302,7 @@ For an orchestrator like polly, a few lines in its prompt turn quests into its w
 prompt: |
   ...
   Quest log: if the human hands you a quest (a questlog ref like
-  `indie-game/demo/finish-level-one`), read it first with `quest_get` and work
+  `overlord/lair/install-the-shark-tank`), read it first with `quest_get` and work
   toward its `next` step and definition of done. As work lands, record it with
   `quest_update` / `quest_log`: the new save state, the next step, and every PR
   that needs the human's review under `waiting`.
@@ -334,8 +334,8 @@ Use the full path to `questlog` if the client doesn't share your shell's `PATH`.
 from questlog import config, store, views, orient, rewards, ledger
 
 cfg = config.load()
-print(orient.briefing(cfg, cwd="~/games/starfall", prompt="fix the jump"))  # what an agent would see
-q = store.find("finish-level-one", cfg)
+print(orient.briefing(cfg, cwd="~/lair", prompt="fix the trapdoor"))  # what an agent would see
+q = store.find("install-the-shark-tank", cfg)
 print(views.seed_prompt(q, cfg))   # opening message for a briefed work session
 print(rewards.sheet(cfg).level)    # the character sheet
 ```

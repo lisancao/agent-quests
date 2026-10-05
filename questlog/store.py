@@ -10,19 +10,19 @@ Three levels: faction (a big aspiration) -> arc (an initiative serving it) -> qu
 A quest file:
 
     ---
-    title: Finish level one
+    title: Install the shark tank
     status: active          # active | blocked | waiting | parked | done
     lead: claude            # who takes point
-    done: Playable start to finish with no placeholder art
-    next: Fix the collision bug on the bridge
-    waiting: Pick between the two jump tunings   # what's blocked on the human, if anything
+    done: Sharks in, glass holds, trapdoor drops on cue
+    next: Fix the trapdoor that opens on its own
+    waiting: Pick laser sharks or regular sharks   # what's blocked on the human, if anything
     sessions: 1a2b3c4d,5e6f7a8b
-    cwd: ~/games/starfall
+    cwd: ~/lair
     updated: 2026-03-12
     ---
     ## Objectives
-    - [x] Block out the layout
-    - [ ] Fix the bridge collision
+    - [x] Dig the pit
+    - [ ] Fix the trapdoor
     ## Save state
     ...
     ## Log

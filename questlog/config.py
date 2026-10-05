@@ -1,9 +1,9 @@
 """questlog.toml: the world the user defines. Everything has a default, so no config is required.
 
 Three levels:
-  faction  a big aspiration or allegiance      "Ship my indie game"
-  arc      an initiative that serves a faction  "Build a playable demo"
-  quest    a concrete deliverable inside an arc "Finish level one"
+  faction  a big aspiration or allegiance      "Become an overlord"
+  arc      an initiative that serves a faction  "Build the volcano lair"
+  quest    a concrete deliverable inside an arc "Install the shark tank"
 
 Factions and arcs carry intent and strategy so agents can orient to them, plus `match`
 rules (folders, keywords) that tell questlog which sessions serve them.
@@ -15,16 +15,16 @@ rules (folders, keywords) that tell questlog which sessions serve them.
     claude = "hands-on coding and writing"
 
     [[factions]]
-    id = "indie-game"
-    name = "Ship my indie game"
-    intent = "Ship a small, finished game people actually play"
-    strategy = "Scope down hard; playtest every week"
-    success_looks_like = "Strangers finish the demo"
+    id = "overlord"
+    name = "Become an overlord"
+    intent = "Rule the world, eventually, with style"
+    strategy = "Start with one island; never monologue early"
+    success_looks_like = "Heroes take me seriously"
     lead = "claude"
     private = false
-    match = { paths = ["~/games/starfall"], keywords = ["godot", "playtest"] }
+    match = { paths = ["~/lair"], keywords = ["lair", "doomsday"] }
     arcs = [
-      { id = "demo", name = "Build a playable demo", goal = "A festival-ready demo", complete_when = "Three levels and a menu", match = { paths = ["~/games/starfall/levels"] } },
+      { id = "lair", name = "Build the volcano lair", goal = "A lair worthy of a showdown", complete_when = "Shark tank and a self-destruct button", match = { paths = ["~/lair/blueprints"] } },
     ]
     # quests (concrete deliverables) live in <root>/<faction>/<arc>/<quest>.md
 
