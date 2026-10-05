@@ -39,7 +39,9 @@ On a session's first prompt (Claude Code hook, or the `orient` MCP tool for any 
 - Strategy: Start with one island; a lair before an army; never monologue before the trap is armed
 - Arc goal: A lair worthy of a final showdown. Complete when: shark tank, self-destruct button, and a dramatic entrance
 - Quest `overlord/lair/install-the-shark-tank`: Install the shark tank. Why: no lair is taken seriously without one.
-  Done when: sharks in, glass holds, trapdoor drops on cue. Next: fix the trapdoor that opens on its own
+  Done when: sharks in, glass holds, trapdoor drops on cue. Next: fix the trapdoor that opens on its own. Objective 2/4: Fix the trapdoor
+- Tip from the last session on it (`5f2c91ab`): the trapdoor fires on the elevator's vibration; raise the threshold in lair/trapdoor.py before touching the wiring.
+- Shared surface: `overlord/lair/unveil-the-doomsday-clock` (lead orchestrator) also writes lair/*.py. Check its save state before editing; log what you change.
 Sibling sessions on the same goal (recent):
 - Mar 12 `5f2c91ab` Trapdoor debugging: glass sealed; the trapdoor opens when the elevator passes, not yet fixed.
 - Mar 11 `a07d3e44` Henchman onboarding: drafted the jumpsuit policy; two recruits asked about dental.
@@ -65,10 +67,10 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
   +--------------------+                          +----------------------+
                                                              │
                                                              ▼
-                                                  +----------------------+
-                                                  |  /quest · hub · sheet|
-                                                  |  your quest journal  |
-                                                  +----------------------+
+  +--------------------+   define, deal, sort     +----------------------+
+  |   Puck             | <──────────────────────> |  /quest · hub · sheet|
+  |  keeper of the log |   you, the game master   |  your quest journal  |
+  +--------------------+                          +----------------------+
 ```
 
 <p align="center">
@@ -85,7 +87,7 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
 
 - **Factions** carry your `intent` (what you want, in your words), a `strategy` (how, for whom), and what `success_looks_like`. They're often ongoing.
 - **Arcs** carry a `goal`, a `strategy`, and a definition of complete (`complete_when`).
-- **Quests** carry `done` (observable definition of done), `why` (how it serves its arc), `next` (one five-minute step), `waiting` (what's blocked on you), a `lead` (who takes point), `size`, an optional `reward` you set for yourself, objectives, a save state and a log.
+- **Quests** carry `done` (observable definition of done), `why` (how it serves its arc), `next` (one five-minute step), `waiting` (what's blocked on you), a `lead` (who takes point), `size`, an optional `reward` you set for yourself, objectives, a save state and a log. For coordination they can also carry `after` (prerequisites), `authority` (how much the lead may decide alone) and `surface` (the files it edits).
 - **match** rules on factions, arcs and quests (folders, keywords) are what make goals *contextual*: they decide which goal a session is oriented to.
 
 ## Example config
@@ -110,6 +112,7 @@ intent = "Rule the world, eventually, with style"
 strategy = "Start with one island; a lair before an army; never monologue before the trap is armed"
 success_looks_like = 'Heroes start their sentences with "We have to stop..."'
 lead = "claude"
+authority = "proposes"         # default for its quests: closing one needs your sign-off
 match = { paths = ["~/lair"], keywords = ["lair", "henchmen", "doomsday", "monologue"] }
 
 # Arcs are initiatives serving the faction, each with its own definition of complete.
@@ -135,8 +138,25 @@ achievements = [
   { name = "Evil Genius", description = "Five quests done for Become an overlord", faction = "overlord", quests_done = 5 },
 ]
 
+[journal]
+theme = "codex"                # or "parchment"
+voice = true                   # the scribe writes journal entries and deeds as in-world prose
+
+[puck]
+model = "sonnet"               # the model Puck runs on in Claude Code
+
+[nudge]
+enabled = true                 # once per session, ask the agent to update its quest before stopping
+
 [hub]
 launch = "my-launcher {ref}"   # what Enter on a quest runs in the hub; empty shows the briefing to copy
+
+[commons]                      # the shared automata world agents grow together
+width = 64
+height = 24
+rule = "B3/S23"
+max_steps = 12
+max_cells = 24
 
 [scribe]                       # the post-session pass that keeps state current
 command = ["claude", "-p", "--model", "haiku", "--no-session-persistence"]
@@ -157,6 +177,8 @@ next: Fix the trapdoor that opens on its own
 waiting: Pick laser sharks or regular sharks
 size: medium
 reward: A new cape
+authority: proposes
+surface: ~/lair/trapdoor.py, ~/lair/tank/*
 ---
 ## Objectives
 - [x] Dig the pit
@@ -177,7 +199,7 @@ Laser shark vendor quoted twice the budget; regular sharks available Thursday.
 
 1. **Orient.** On a session's first prompt, the agent gets the goal its context matches, your aim and strategy, the definitions of done, the quest's state, and what recent sibling sessions on the same goal did. A session that matches nothing gets a compact map of your goals and can attach itself.
 2. **Work** happens in whatever agent you use. Agents can read and update state mid-session over MCP (`quest_get`, `quest_update`, `quest_log`).
-3. **Record.** The scribe reads the session afterwards (one cheap LLM pass) and writes a digest, the decisions made and **deeds** (accomplishments, with XP) to a session ledger; it updates the quest's save state when the session was working on one, suggests new quests when work fits an arc but no quest, and never marks a quest done unless its definition of done is visibly met. Headless helper runs are skipped.
+3. **Record.** The scribe reads the session afterwards (one cheap LLM pass) and writes a digest, the decisions made and **deeds** (accomplishments, with XP) to a session ledger; it updates the quest's save state when the session was working on one, suggests new quests when work fits an arc but no quest, never marks a quest done unless its definition of done is visibly met, and leaves one concrete tip for the next session on the quest. Headless helper runs are skipped.
 4. **Review.** `/quest`, `questlog brief` or the hub show where everything stands.
 
 ## Briefs: a few questions when an arc or quest is born
@@ -214,13 +236,17 @@ Run it with `questlog puck` (Claude Code, on Sonnet by default; `[puck] model` c
 
 ## Events, the inbox, and nudges
 
-Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`: `quest_added`, `activated`, `assigned`, `objective_done`, `blocked`, `unblocked`, `waiting`, `answered`, `completed`, `parked`. Each agent session has an **inbox**: the events about its quest, its arc, its faction's big news, and quests its agent leads, since it last looked.
+Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`: `quest_added`, `activated`, `assigned`, `objective_done`, `blocked`, `unblocked`, `waiting`, `answered`, `completed`, `parked`, `reverted`. Each agent session has an **inbox**: the events about its quest, its arc, its faction's big news, and quests its agent leads, since it last looked.
 
 - **Claude Code:** the `orient` hook orients a session on its first prompt, then on later prompts adds a short *Since you last looked* note, only when something relevant changed (for example, "`lair/install-the-shark-tank` completed; `lair/rehearse-the-monologue` is now active").
 - **Any MCP agent:** `inbox(session_id, agent)`.
 - **The game master:** toasts in the hub.
 
 **Nudges.** Once per session, at the end, the `nudge` Stop hook asks the agent to leave the log better than it found it, but only if there's a reason: the bound quest wasn't updated this session, it has no next step, or every objective is ticked but it's still open. An unbound session that clearly served a goal is asked to attach itself or propose a quest. It never fires twice, and never while the agent is already continuing. `[nudge] enabled = false` turns it off.
+
+## Coordinating agents
+
+Several agents often work toward one goal at once. These keep them from tripping over each other, and keep you in charge of what matters.
 
 **Prerequisites.** `after: <quest ref>[, …]` keeps a quest parked (shown locked in the journal) until its prerequisites are done; then it activates and the lead hears about it in its inbox. Each quest also exposes its **current objective** (the first unticked one) and progress (`2/4`), which orientation shows.
 
@@ -230,7 +256,7 @@ Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`:
 
 **Audit and undo.** Every write to a quest, arc or faction is recorded in `.questlog/audit.jsonl` with who made it, why (`reason`, or the log line written with it), which fields changed, and the text before. `questlog audit [--by puck]` lists them; `questlog undo [id]` reverts one (or the latest), refusing if the file has changed since so a later edit is never silently lost. Puck passes a reason with every structural change, so its reorganizing is reviewable and reversible.
 
-**Advice for the next session.** The scribe ends each session record with one concrete sentence for whoever picks the work up next (the blocker, the file, the command), and the next session on that quest sees it in its orientation.
+**Advice for the next session.** The scribe ends each session record with one concrete sentence for whoever picks the work up next (the blocker, the file, the command), and the next session on that quest sees it in its orientation. Generic advice ("consider adding tests") is discouraged; a specific pointer is what saves the next session its warm-up.
 
 ## The journal
 
@@ -277,6 +303,8 @@ Plain markdown you can read and edit anywhere (Obsidian works well), plus a hidd
 <root>/.questlog/sessions.jsonl          what each session did
 <root>/.questlog/deeds.jsonl             accomplishments with XP
 <root>/.questlog/suggestions.jsonl       quests the scribe proposes
+<root>/.questlog/events.jsonl            what changed, for agents' inboxes
+<root>/.questlog/audit.jsonl             every write: who, why, the text before (for undo)
 <root>/.questlog/commons/                the shared automata world and its chronicle
 ```
 
@@ -311,9 +339,10 @@ Then seed the ledger from the past week: `questlog backfill --days 7`.
 
 ```sh
 ln -s "$PWD/skills/quest" ~/.claude/skills/quest
+ln -s "$PWD/agents/puck.md" ~/.claude/agents/puck.md   # Puck as a subagent
 ```
 
-`/quest` gives the brief; `/quest new faction|arc <name>`, `/quest new <title>`, `/quest <ref>`, `/quest work <ref>`, `/quest done <ref>`, `/quest waiting`, `/quest sheet` cover the rest, and plain language works too. Creating anything asks its brief first.
+`/quest` gives the brief; `/quest new faction|arc <name>`, `/quest new <title>`, `/quest <ref>`, `/quest work <ref>`, `/quest done <ref>`, `/quest waiting`, `/quest sheet`, `/quest puck`, `/quest inbox`, `/quest commons` cover the rest, and plain language works too. Creating anything asks its brief first.
 
 ## Using it
 
@@ -326,10 +355,22 @@ questlog orient --cwd . --prompt "what I'm about to do"
 questlog deeds --days 7
 questlog faction overlord --name "Become an overlord"            # asks the brief
 questlog arc overlord lair --name "Build the volcano lair"        # asks the brief
-questlog new overlord "Install the shark tank" --arc lair         # asks the brief
+questlog new overlord "Install the shark tank" --arc lair \
+  --surface "~/lair/tank/*"                                        # asks the brief
+questlog puck                # talk to Puck: define, deal out and sort quests
+questlog inbox               # what changed since you last looked
+questlog conflicts           # open quests with different leads editing the same files
+questlog audit --by puck     # recent writes: who, what, why
+questlog undo [id]           # revert one
+questlog commons             # the shared automata world
 ```
 
-**MCP tools:** `orient`, `inbox`, `faction_create`, `unsorted_sessions`, `rumour_resolve`, `commons_look`, `commons_turn`, `brief`, `mine`, `waiting_on_human`, `factions`, `standing`, `sheet`, `deeds`, `suggestions`, `recall`, `quest_list`, `quest_get`, `arc_create`, `quest_create`, `quest_update`, `objective_check`, `quest_log`, `quest_attach`. **Prompts:** `puck` (become Puck, keeper of the quest log), `new_arc`, `new_quest`.
+**MCP tools:**
+- orientation and state: `orient`, `inbox`, `brief`, `mine`, `waiting_on_human`, `quest_list`, `quest_get`, `recall`;
+- defining the game: `faction_create`, `arc_create`, `quest_create`, `factions`, `standing`;
+- doing the work: `quest_update`, `objective_check`, `quest_log`, `quest_attach`;
+- organizing (Puck's kit): `unsorted_sessions`, `suggestions`, `rumour_resolve`, `conflicts`, `audit_log`, `undo`;
+- rewards and play: `sheet`, `deeds`, `commons_look`, `commons_turn`. **Prompts:** `puck` (become Puck, keeper of the quest log), `new_arc`, `new_quest`.
 
 ## Plug it into your agents
 

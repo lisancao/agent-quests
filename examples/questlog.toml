@@ -1,12 +1,13 @@
-# questlog.toml example. faction = a big aspiration; arc = an initiative serving it; quest = a deliverable.
-root = "~/quests"
-human = "Sam"
+root = "~/quests"              # where factions, arcs and quests live (plain markdown)
+human = "Sam"                  # who "waiting on you" means
 
-[agents]
+[agents]                       # who can take point on a quest, and what they're good at
 claude = "hands-on coding and writing"
 orchestrator = "multi-agent coding that ends in PRs to review"
 assistant = "personal life, routines, check-ins"
 
+# A faction is a big aspiration. intent + strategy are what agents get oriented to;
+# match decides which sessions it applies to (the folder they work in, the words they use).
 [[factions]]
 id = "overlord"
 name = "Become an overlord"
@@ -14,7 +15,10 @@ intent = "Rule the world, eventually, with style"
 strategy = "Start with one island; a lair before an army; never monologue before the trap is armed"
 success_looks_like = 'Heroes start their sentences with "We have to stop..."'
 lead = "claude"
+authority = "proposes"         # default for its quests: closing one needs your sign-off
 match = { paths = ["~/lair"], keywords = ["lair", "henchmen", "doomsday", "monologue"] }
+
+# Arcs are initiatives serving the faction, each with its own definition of complete.
 arcs = [
   { id = "lair", name = "Build the volcano lair", goal = "A lair worthy of a final showdown", complete_when = "Shark tank, self-destruct button, and a dramatic entrance", match = { paths = ["~/lair/blueprints"] } },
   { id = "henchmen", name = "Recruit henchmen", goal = "A loyal crew that reads the onboarding doc", complete_when = "Twelve henchmen, matching jumpsuits, nobody quits", match = { keywords = ["henchmen", "recruit", "jumpsuit"] } },
@@ -25,12 +29,12 @@ id = "self-care"
 name = "Villain self-care"
 intent = "Sleep, stretch, and stop answering the red phone after midnight"
 lead = "assistant"
-private = true          # hidden from orientation maps, briefs and the hub unless asked for
+private = true                 # left out of orientation maps, briefs and the hub unless asked for
 
-[briefs.quest]          # override the creation questions if you like
+[briefs.quest]                 # the questions asked when a quest is created
 required = ["What does done look like, observably?", "Why does this matter for its arc?"]
 
-[rewards]
+[rewards]                      # XP curve, reputation tiers, your own achievements
 level_divisor = 50
 tiers = [["Unknown", 0], ["Recognized", 100], ["Respected", 400], ["Renowned", 1200], ["Legend", 3000]]
 achievements = [
@@ -38,26 +42,26 @@ achievements = [
 ]
 
 [journal]
-theme = "codex"       # or "parchment"
-voice = true          # scribe writes journal entries and deeds as in-world prose
+theme = "codex"                # or "parchment"
+voice = true                   # the scribe writes journal entries and deeds as in-world prose
 
 [puck]
-model = "sonnet"      # the model Puck runs on in Claude Code
+model = "sonnet"               # the model Puck runs on in Claude Code
 
 [nudge]
-enabled = true        # once per session, ask the agent to update its quest before stopping
+enabled = true                 # once per session, ask the agent to update its quest before stopping
 
 [hub]
-launch = ""             # e.g. "my-terminal-launcher {ref}"; empty shows the briefing to copy
+launch = ""                    # e.g. "my-launcher {ref}"; what Enter on a quest runs in the hub; empty shows the briefing to copy
 
-[commons]               # the shared automata world agents grow together
+[commons]                      # the shared automata world agents grow together
 width = 64
 height = 24
 rule = "B3/S23"
 max_steps = 12
 max_cells = 24
 
-[scribe]
+[scribe]                       # the post-session pass that keeps state current
 command = ["claude", "-p", "--model", "haiku", "--no-session-persistence"]
 throttle_minutes = 20
-every_session = true
+every_session = true           # read every session, not only ones bound to a quest
