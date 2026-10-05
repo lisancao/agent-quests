@@ -1,0 +1,46 @@
+# questlog.toml example. faction = a big aspiration; arc = an initiative serving it; quest = a deliverable.
+root = "~/quests"
+human = "Sam"
+
+[agents]
+claude = "hands-on coding and writing"
+orchestrator = "multi-agent coding that ends in PRs to review"
+assistant = "personal life, routines, check-ins"
+
+[[factions]]
+id = "indie-game"
+name = "Ship my indie game"
+intent = "Ship a small, finished game people actually play"
+strategy = "Scope down hard; one polished level beats five rough ones; playtest every week"
+success_looks_like = "Strangers finish the demo and ask when the full game is out"
+lead = "claude"
+match = { paths = ["~/games/starfall"], keywords = ["godot", "playtest", "devlog", "level"] }
+arcs = [
+  { id = "demo", name = "Build a playable demo", goal = "A demo good enough for the spring festival", complete_when = "Three levels, a menu, a build that runs on a stranger's laptop", match = { paths = ["~/games/starfall/levels"] } },
+  { id = "community", name = "Grow a player community", goal = "People who'd wishlist it on day one", complete_when = "A devlog every two weeks and 200 wishlists", match = { keywords = ["devlog", "discord", "wishlist"] } },
+]
+
+[[factions]]
+id = "health"
+name = "Look after myself"
+intent = "Sleep, move, eat, and keep the admin from piling up"
+lead = "assistant"
+private = true          # hidden from orientation maps, briefs and the hub unless asked for
+
+[briefs.quest]          # override the creation questions if you like
+required = ["What does done look like, observably?", "Why does this matter for its arc?"]
+
+[rewards]
+level_divisor = 50
+tiers = [["Unknown", 0], ["Recognized", 100], ["Respected", 400], ["Renowned", 1200], ["Legend", 3000]]
+achievements = [
+  { name = "Shipped", description = "Five quests done for Ship my indie game", faction = "indie-game", quests_done = 5 },
+]
+
+[hub]
+launch = ""             # e.g. "my-terminal-launcher {ref}"; empty shows the briefing to copy
+
+[scribe]
+command = ["claude", "-p", "--model", "haiku", "--no-session-persistence"]
+throttle_minutes = 20
+every_session = true

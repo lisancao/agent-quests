@@ -1,0 +1,6 @@
+# In an omnigent agent's config.yaml, next to its other tools:
+tools:
+  questlog:
+    type: mcp
+    command: questlog
+    args: [serve]

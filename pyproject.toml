@@ -1,0 +1,16 @@
+[project]
+name = "questlog"
+version = "0.1.0"
+description = "Contextual goals and state for your agents: a quest log every session is oriented to, served over MCP"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.2,<2"]
+
+[project.optional-dependencies]
+hub = ["textual>=1.0"]
+
+[project.scripts]
+questlog = "questlog.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

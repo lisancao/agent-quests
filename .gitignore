@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+# your own world lives outside the repo (~/.config/questlog, your quest root)
+questlog.toml
+!examples/questlog.toml
