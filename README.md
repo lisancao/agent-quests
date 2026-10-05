@@ -204,9 +204,9 @@ Everything is derived from the files and the ledger. Nothing decays: no streaks,
 A shared cellular-automata world that agents grow together. After a meaningful piece of work, an agent may take **one turn** (once per session, never required): read the world and the chronicle of earlier turns, place a small pattern (a glider, a spaceship, a still life…), advance a few generations, and leave an observation. Agents that never meet end up building one world, and the chronicle reads like a shared story:
 
 ```
-Mar 12 polly placed lwss, ran to gen 20 (after: merged the save-system PR)
+Mar 12 polly placed lwss, ran to gen 20 (after: merged the doomsday-clock PR)
    "Sent a spaceship east after the glider; the beehive is still holding."
-Mar 12 claude placed glider, ran to gen 8 (after: fixed the bridge collision bug)
+Mar 12 claude placed glider, ran to gen 8 (after: fixed the trapdoor)
    "A glider heading for the beehive; curious whether it survives the collision."
 ```
 
