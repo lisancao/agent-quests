@@ -31,6 +31,7 @@ A quest file:
 from __future__ import annotations
 
 import fcntl
+import fnmatch
 import hashlib
 import os
 import re
@@ -43,7 +44,7 @@ from typing import Callable, Iterator
 
 from . import config as cfgmod
 
-FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "sessions", "cwd",
+FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "surface", "sessions", "cwd",
           "match_paths", "match_keywords", "updated")
 SIZES = ("small", "medium", "large")
 AUTHORITIES = ("autonomous", "proposes", "escalates")
@@ -73,6 +74,7 @@ class Quest:
     reward: str = ""        # a loot milestone the human sets for themselves
     after: str = ""         # prerequisites: comma-separated quest refs that must be done first
     authority: str = ""     # autonomous | proposes | escalates (empty: the faction's default)
+    surface: str = ""       # what this quest writes: comma-separated paths or globs (conflict check, matching)
     match_paths: str = ""   # optional, comma-separated: sessions here serve this quest
     match_keywords: str = ""
     sessions: list[str] = field(default_factory=list)
@@ -104,6 +106,7 @@ class Quest:
         d = {"ref": self.ref, "faction": self.faction, "arc": self.arc, "title": self.title,
              "status": self.status, "lead": self.lead, "done": self.done, "why": self.why, "next": self.next,
              "waiting": self.waiting, "size": self.size, "reward": self.reward, "after": self.after,
+            "surface": self.surface,
             "authority": self.authority or "autonomous",
             "current": self.current_objective, "progress": self.progress, "updated": self.updated}
         if full:
@@ -383,7 +386,7 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
 def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done: str = "", next: str = "",
            lead: str = "", waiting: str = "", objectives: list[str] | None = None, cwd: str = "",
            why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "",
-           authority: str = "") -> Quest:
+           authority: str = "", surface: str = "") -> Quest:
     answers = dict(brief or {})
     done = done or answers.get("done", "")
     why = why or answers.get("why", "")
@@ -403,11 +406,60 @@ def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done:
               lead=lead or (f.lead if f else ""), cwd=cwd, size=size if size in SIZES else "", reward=reward,
               brief=brief_markdown(answers, qs), authority=authority if authority in AUTHORITIES else "",
               status="parked" if _unmet(cfg, after) else ("waiting" if waiting else "active"), after=after,
+              surface=surface,
               objectives=[(False, o) for o in (objectives or [])])
     q.log.append(f"{date.today().isoformat()}: created")
     with locked(path):
         save(q, cfg)
     return q
+
+
+# --- write surfaces ---------------------------------------------------------------
+
+OPEN = ("active", "blocked", "waiting")
+
+
+def surfaces(q: Quest) -> list[str]:
+    return [str(Path(os.path.expanduser(s.strip())))
+            for s in (q.surface or "").split(",") if s.strip()]
+
+
+def surface_root(pattern: str) -> str:
+    """The folder part of a path or glob: everything before the first wildcard."""
+    head = re.split(r"[*?\[]", pattern, maxsplit=1)[0]
+    return head.rstrip("/") if head != pattern else pattern.rstrip("/")
+
+
+def _overlap(a: str, b: str) -> bool:
+    if fnmatch.fnmatch(a, b) or fnmatch.fnmatch(b, a):
+        return True
+    ra, rb = surface_root(a), surface_root(b)
+    return bool(ra and rb) and (ra == rb or ra.startswith(rb + "/") or rb.startswith(ra + "/"))
+
+
+def _tilde(p: str) -> str:
+    home = str(Path.home())
+    return "~" + p[len(home):] if p.startswith(home + "/") else p
+
+
+def conflicts(cfg: cfgmod.Config, q: Quest | None = None) -> list[dict]:
+    """Open quests whose write surfaces overlap but whose leads differ: two agents about to edit the same
+    files without knowing it. Same-lead overlaps are fine (one agent, sequenced work). With `q`, only its pairs."""
+    open_q = [x for x in load(cfg, include_private=True) if x.status in OPEN and x.surface]
+    if q is not None:
+        others = [x for x in open_q if x.ref != q.ref]
+        pairs = [(q, x) for x in others] if q.surface and q.status in OPEN else []
+    else:
+        pairs = [(x, y) for i, x in enumerate(open_q) for y in open_q[i + 1:]]
+    out = []
+    for x, y in pairs:
+        if (x.lead or "") == (y.lead or "") and x.lead:
+            continue
+        # Show the narrower of each overlapping pair: that's where the edits will collide.
+        shared = sorted({_tilde(max(a, b, key=len)) for a in surfaces(x) for b in surfaces(y) if _overlap(a, b)})
+        if shared:
+            out.append({"a": x.ref, "a_lead": x.lead, "b": y.ref, "b_lead": y.lead, "shared": shared[:4]})
+    return out
 
 
 def _unmet(cfg: cfgmod.Config, after: str) -> bool:

@@ -224,6 +224,12 @@ Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`:
 
 **Prerequisites.** `after: <quest ref>[, …]` keeps a quest parked (shown locked in the journal) until its prerequisites are done; then it activates and the lead hears about it in its inbox. Each quest also exposes its **current objective** (the first unticked one) and progress (`2/4`), which orientation shows.
 
+**Authority.** Each quest (or a faction, as its default) says how much its lead may decide alone: `autonomous` (the lead may close it), `proposes` (closing becomes a sign-off request waiting on the game master; good for anything public or irreversible) or `escalates` (status and scope changes become proposals).
+
+**Write surfaces.** `surface: src/lair/clock/*.py, docs/clock.md` names what a quest edits. Working in a quest's surface orients the session to that quest, and when two open quests with different leads share a surface, `questlog conflicts` (MCP `conflicts`) flags them, as do orientation and the create/update responses, before two agents edit the same files blind. Sequence them with `after` or give both to one lead.
+
+**Advice for the next session.** The scribe ends each session record with one concrete sentence for whoever picks the work up next (the blocker, the file, the command), and the next session on that quest sees it in its orientation.
+
 ## The journal
 
 `questlog hub` (or `/quest hub`) opens a terminal quest journal: main quests (factions › questlines with progress pips › quests), side quests and completed ones on the left; the selected quest's page on the right, with its flavour line (why), definition of done, objectives with the current one marked, notes, journal entries and reward. Other pages: **Character** (level, reputation, achievements, inventory), **Codex** (faction lore and your agents as allies), **Chronicle** (deeds), **Party** (recent sessions), **Commons** and **Rumours** (quests the scribe thinks should exist).

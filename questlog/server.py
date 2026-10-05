@@ -129,22 +129,27 @@ def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None
 @mcp.tool()
 def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: str = "", waiting: str = "",
                  objectives: list[str] | None = None, cwd: str = "", size: str = "", reward: str = "",
-                 after: str = "", authority: str = "", brief: dict | None = None) -> dict:
+                 after: str = "", authority: str = "", surface: str = "", brief: dict | None = None) -> dict:
     """Create a quest (a concrete deliverable) under a faction, ideally inside an arc. The first call returns
     the brief questions (what done looks like; why it matters for the arc); call again with brief={key: answer}.
     `next` is one small first action; `size` small|medium|large; `reward` is a treat the game master sets for
     finishing; `after` lists prerequisite quest refs (comma-separated): the quest stays parked until they're done;
     `authority`: autonomous (the lead may close it) | proposes (closing needs the game master's sign-off) |
-    escalates (status and scope changes are proposals)."""
+    escalates (status and scope changes are proposals); `surface`: comma-separated paths or globs this quest
+    writes, so overlapping work by different leads is flagged (returned as `conflicts`)."""
     cfg = _cfg()
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
     miss = briefs.missing(cfg, "quest", brief)
     if miss:
         return briefs.needs_brief_response(cfg, "quest", miss)
-    return store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
-                        objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after,
-                        authority=authority).to_dict()
+    q = store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
+                     objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after,
+                     authority=authority, surface=surface)
+    out = q.to_dict()
+    if (c := store.conflicts(cfg, q)):
+        out["conflicts"] = c
+    return out
 
 
 @mcp.tool()
@@ -180,7 +185,8 @@ def recall(session_id: str) -> dict:
 @mcp.tool()
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
-                 after: str = "", authority: str = "", add_objectives: list[str] | None = None, log: str = "") -> dict:
+                 after: str = "", authority: str = "", surface: str = "", add_objectives: list[str] | None = None,
+                 log: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
     status: active | blocked | waiting | parked | done."""
     if status and status not in cfgmod.STATUS_KEYS:
@@ -202,7 +208,7 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
             status = ""
         for k, v in (("status", status), ("next", next), ("save_state", save_state), ("lead", lead),
                      ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward),
-                     ("after", after), ("authority", authority if authority in store.AUTHORITIES else "")):
+                     ("after", after), ("surface", surface), ("authority", authority if authority in store.AUTHORITIES else "")):
             if v:
                 setattr(q, k, v)
         if waiting is not None:
@@ -212,13 +218,24 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
         if log:
             from datetime import date
             q.log.append(f"{date.today().isoformat()}: {log}")
+    cfg = _cfg()
     try:
-        out = store.update(ref, apply, _cfg()).to_dict()
+        q = store.update(ref, apply, cfg)
     except KeyError as e:
         return {"error": str(e)}
+    out = q.to_dict()
+    if (c := store.conflicts(cfg, q)):
+        out["conflicts"] = c
     if notes:
         out["notes"] = notes
     return out
+
+
+@mcp.tool()
+def conflicts() -> list[dict]:
+    """Open quests whose write surfaces overlap but whose leads differ: two agents about to edit the same files.
+    Resolve by sequencing them with `after`, giving both to one lead, or narrowing a surface."""
+    return store.conflicts(_cfg())
 
 
 @mcp.tool()

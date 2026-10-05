@@ -87,6 +87,9 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
             tip = _quest_tip(cfg, q.ref, session_id)
             if tip:
                 lines.append(tip)
+            for c in store.conflicts(cfg, q)[:2]:
+                lines.append(f"- Shared surface: `{c['b']}` (lead {c['b_lead'] or 'unassigned'}) also writes "
+                             f"{', '.join(c['shared'][:2])}. Check its save state before editing; log what you change.")
             auth = q.authority or "autonomous"
             if auth != "autonomous":
                 lines.append(f"- Authority: {auth}: {store.AUTHORITY_NOTE[auth]}")

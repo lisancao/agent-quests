@@ -69,8 +69,11 @@ def cmd_new(a) -> int:
         return 1
     answers = _ask_brief(cfg, "quest", {"done": a.done or "", "why": a.why or ""})
     q = store.create(cfg, a.faction, a.title, arc=a.arc or "", next=a.next or "", lead=a.lead or "",
-                     objectives=a.objective or [], size=a.size or "", reward=a.reward or "", brief=answers)
+                     objectives=a.objective or [], size=a.size or "", reward=a.reward or "", brief=answers,
+                     surface=",".join(a.surface or []))
     print(q.ref)
+    for c in store.conflicts(cfg, q):
+        print(f"  shared surface with {c['b']} (lead {c['b_lead'] or '-'}): {', '.join(c['shared'])}", file=sys.stderr)
     return 0
 
 
@@ -213,6 +216,15 @@ def cmd_hub(a) -> int:
     return 0
 
 
+def cmd_conflicts(a) -> int:
+    rows = store.conflicts(cfgmod.load())
+    for c in rows:
+        print(f"{c['a']} ({c['a_lead'] or '-'})  <>  {c['b']} ({c['b_lead'] or '-'})\n    {', '.join(c['shared'])}")
+    if not rows:
+        print("no overlapping surfaces")
+    return 0
+
+
 def cmd_set(a) -> int:
     def apply(q: store.Quest) -> None:
         for kv in a.pairs:
@@ -346,7 +358,10 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("faction"); s.add_argument("title"); s.add_argument("--done"); s.add_argument("--next")
     s.add_argument("--lead"); s.add_argument("--arc"); s.add_argument("--objective", action="append")
     s.add_argument("--why"); s.add_argument("--size", choices=store.SIZES); s.add_argument("--reward")
+    s.add_argument("--surface", action="append", help="path or glob this quest writes (repeatable)")
     s.set_defaults(fn=cmd_new)
+    s = sub.add_parser("conflicts", help="open quests with overlapping write surfaces and different leads")
+    s.set_defaults(fn=cmd_conflicts)
     s = sub.add_parser("faction", help="create a faction: questlog faction <id> --name ... (asks the brief)")
     s.add_argument("id"); s.add_argument("--name"); s.add_argument("--intent"); s.add_argument("--strategy")
     s.add_argument("--lead"); s.add_argument("--private", action="store_true")

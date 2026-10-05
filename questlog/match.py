@@ -73,9 +73,11 @@ def best(cfg: cfgmod.Config, cwd: str = "", paths: list[str] | None = None, text
             candidates.append(Hit(f.id, "", "", fs, fwhy))
     # Quest-level match rules refine further.
     for q in store.load(cfg, include_private=include_private):
-        if q.status == "done" or not (q.match_paths or q.match_keywords):
+        if q.status == "done" or not (q.match_paths or q.match_keywords or q.surface):
             continue
-        m = cfgmod.Match.from_raw({"paths": cfgmod._split_list(q.match_paths),
+        # A quest's write surface is strong evidence: working there means working on it.
+        roots = [store.surface_root(s) for s in store.surfaces(q)]
+        m = cfgmod.Match.from_raw({"paths": cfgmod._split_list(q.match_paths) + [r for r in roots if r],
                                    "keywords": cfgmod._split_list(q.match_keywords)})
         s, w = _score(m, cwd, paths, text)
         if s:
