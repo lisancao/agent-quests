@@ -77,6 +77,51 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
   <code>⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡</code>
 </p>
 
+## Getting started
+
+The fastest way in is to let your agent set it up and interview you. Paste this into Claude Code (or any agent that can run shell commands), from any folder:
+
+```text
+Set up questlog (https://github.com/lisancao/agent-quests) for me, then help me define my first goals.
+
+1. Install it: clone the repo to ~/agent-quests and run `uv tool install -e "$HOME/agent-quests[hub]"`
+   (or `pipx install "$HOME/agent-quests[hub]"` if uv isn't available). Check `questlog --help` works.
+2. Run `questlog init --root ~/quests --human "<my name>"` (ask me my name, and whether ~/quests
+   is a good place for the quest files; an Obsidian vault folder works well).
+3. Connect it to Claude Code:
+   - `claude mcp add -s user questlog -- questlog serve`
+   - link the skill and the Puck agent:
+     `ln -s ~/agent-quests/skills/quest ~/.claude/skills/quest`
+     `ln -s ~/agent-quests/agents/puck.md ~/.claude/agents/puck.md`
+   - add the hooks from the README's Setup section to ~/.claude/settings.json. Merge them into
+     what's there; never replace my existing hooks. Show me the diff before saving.
+4. Interview me to define the game, one question at a time, short answers welcome:
+   - What's one big thing I'm working toward? That's a faction: get its intent (in my words)
+     and strategy (how, and for whom).
+   - What's one initiative serving it right now? That's an arc: get its goal and how I'll know
+     it's complete.
+   - What are one to three concrete deliverables in that arc? Those are quests: for each, what
+     done looks like (observably), why it matters, and a first next step small enough to start
+     in five minutes.
+   - Which folders do I work in for this, and which words would I use? Those become match rules,
+     so future sessions there get oriented to the goal automatically.
+   Write the faction and arc into ~/.config/questlog/questlog.toml, replacing the placeholder
+   "general" faction, and create the quests with `questlog new` (or the quest_create MCP tool).
+5. Optionally run `questlog backfill --days 7` so my recent sessions show up as history
+   (it makes one small Haiku call per session; ask me first).
+6. Finish by running `questlog tree` and `questlog brief`, and tell me what to do next in one line.
+```
+
+Your first steps once it's set up:
+
+1. **Start a fresh session in one of the folders you named** and ask for something real. The first prompt arrives with an *Orientation* block: the goal it serves, your strategy, the quest and its next step. That's the agent knowing why, without you re-explaining.
+2. **Work on a quest on purpose:** `/quest work <quest>` (or `/quest` to see what's waiting). The session attaches itself, so its progress is saved.
+3. **End the session normally.** The scribe reads it and records a digest, the deeds (with XP) and a tip for the next session. If the session forgot to update the quest, the nudge asks it to before it stops.
+4. **Look at what happened:** `questlog brief` for three lines, or `questlog hub` for the full journal (your character sheet, the quest page, the session in the party list).
+5. **Start the next session.** It picks up from the save state and the tip, and knows what its siblings did. From here, add goals as they come up with `/quest new ...`, or hand the organizing to Puck with `/quest puck`.
+
+Prefer to do it by hand? See [Setup](#setup).
+
 ## Concepts
 
 | | what it is | example |
