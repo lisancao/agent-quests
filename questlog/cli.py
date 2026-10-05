@@ -255,6 +255,8 @@ def cmd_set(a) -> int:
             if k == "log":
                 from datetime import date
                 q.log.append(f"{date.today().isoformat()}: {v}")
+            elif k == "save_state":
+                q.save_state = v
             elif k in store.FIELDS and k not in ("sessions", "updated"):
                 setattr(q, k, v)
             else:
@@ -419,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_commons)
     s = sub.add_parser("tree", help="factions -> arcs -> quests"); s.add_argument("--all", action="store_true")
     s.set_defaults(fn=cmd_tree)
-    s = sub.add_parser("set", help="set fields: questlog set <ref> status=parked next='...' log='...'")
+    s = sub.add_parser("set", help="set fields: questlog set <ref> status=parked next='...' save_state='...' log='...'")
     s.add_argument("ref"); s.add_argument("pairs", nargs="+"); s.set_defaults(fn=cmd_set)
     s = sub.add_parser("attach", help="bind a session to a quest")
     s.add_argument("ref"); s.add_argument("session_id"); s.set_defaults(fn=cmd_attach)
