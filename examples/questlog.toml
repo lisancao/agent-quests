@@ -37,6 +37,10 @@ achievements = [
   { name = "Evil Genius", description = "Five quests done for Become an overlord", faction = "overlord", quests_done = 5 },
 ]
 
+[journal]
+theme = "codex"       # or "parchment"
+voice = true          # scribe writes journal entries and deeds as in-world prose
+
 [hub]
 launch = ""             # e.g. "my-terminal-launcher {ref}"; empty shows the briefing to copy
 

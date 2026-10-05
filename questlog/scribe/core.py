@@ -35,12 +35,13 @@ for {human}'s goals. Be concrete and faithful: only what actually happened in th
 {human}'s goals (faction > arc > open quests; ids and refs in backticks):
 {goal_map}
 
-{bound_block}
+{bound_block}{voice_block}
 Reply with ONLY a JSON object:
 {"faction": "<faction id or empty>", "arc": "<arc id or empty>", "quest": "<quest ref or empty>",
  "confidence": <0..1, how sure the session serves that faction/arc/quest>,
  "title": "<5-8 word title for the session>",
  "digest": "<2-4 sentences: what was done and where it stands, useful to a sibling session>",
+ "journal_entry": "<one line for the quest's log: what this session moved forward>",
  "decisions": ["<decision or dead end worth remembering>"],
  "deeds": [{"text": "<a concrete accomplishment>", "size": "small" | "medium" | "large"}],
  "suggested_quest": {"faction": "...", "arc": "...", "title": "...", "done": "...", "why": "..."} or null,
@@ -140,7 +141,11 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
     bound_block = ""
     if bound:
         bound_block = f"This session is BOUND to quest `{bound.ref}`. Its file as it stands:\n{bound.path.read_text()}\n"
-    prompt = (PROMPT.replace("{human}", cfg.human).replace("{goal_map}", goal_map(cfg))
+    voice_block = ("\nVOICE: write each deed's text and the journal_entry in the voice of an in-world RPG "
+                   "quest journal (vivid, a little playful, past tense), while staying faithful and specific: no "
+                   "invented events. Keep digest, decisions, save_state and next plain and factual; agents read those.\n"
+                   if cfg.journal_voice else "")
+    prompt = (PROMPT.replace("{human}", cfg.human).replace("{goal_map}", goal_map(cfg)).replace("{voice_block}", voice_block)
               .replace("{bound_block}", bound_block).replace("{transcript}", claude_code.condense(tpath)))
     out = _call(cfg, prompt)
     if out is None:
@@ -206,7 +211,7 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                 q.objectives = [(c or t.lower() in finished, t) for c, t in q.objectives]
             if session_id[:8] not in q.sessions:
                 q.sessions.append(session_id[:8])
-            line = out.get("digest") or (deeds[0]["text"] if deeds else "")
+            line = out.get("journal_entry") or out.get("digest") or (deeds[0]["text"] if deeds else "")
             if line:
                 q.log.append(f"{today} `{session_id[:8]}`: {' '.join(line.split())[:220]}")
 

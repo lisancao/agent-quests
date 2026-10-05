@@ -199,6 +199,23 @@ Optional ones (approach, who cares, risks, size, a midpoint check) can be answer
 
 Everything is derived from the files and the ledger. Nothing decays: no streaks, no overdue lists, no penalties.
 
+## The journal
+
+`questlog hub` (or `/quest hub`) opens a terminal quest journal: main quests (factions › questlines with progress pips › quests), side quests and completed ones on the left; the selected quest's page on the right, with its flavour line (why), definition of done, objectives with the current one marked, notes, journal entries and reward. Other pages: **Character** (level, reputation, achievements, inventory), **Codex** (faction lore and your agents as allies), **Chronicle** (deeds), **Party** (recent sessions), **Commons** and **Rumours** (quests the scribe thinks should exist).
+
+When a quest changes while the journal is open (a session finished, the scribe recorded it), you get a *Quest Updated* toast with the XP earned; a finished quest shows its reward; a level-up gets its own screen.
+
+Two looks, switchable with `t` or in the config: **codex** (a ship's log: dark panels, neon accents) and **parchment** (a field journal: ink on paper, oxblood and verdigris). With `voice = true`, the scribe writes journal entries and deeds as in-world prose, while digests and save states (what agents read) stay plain.
+
+```toml
+[journal]
+theme = "codex"      # or "parchment"
+voice = true         # in-world journal entries and deeds
+
+[hub.theme]          # optional: override any colour of the chosen theme
+accent = "#e867ea"
+```
+
 ## The commons
 
 A shared cellular-automata world that agents grow together. After a meaningful piece of work, an agent may take **one turn** (once per session, never required): read the world and the chronicle of earlier turns, place a small pattern (a glider, a spaceship, a still life…), advance a few generations, and leave an observation. Agents that never meet end up building one world, and the chronicle reads like a shared story:
