@@ -70,7 +70,10 @@ def diff(cfg: cfgmod.Config, old, new) -> list[dict]:
         if new.waiting and new.waiting != old.waiting:
             out.append(("waiting", f"Waiting on the game master: {new.waiting}"))
         elif old.waiting and not new.waiting:
-            out.append(("answered", f"No longer waiting ({old.waiting[:80]}). Next: {new.next}"))
+            fresh = new.log[len(old.log):] if len(new.log) > len(old.log) else []
+            said = fresh[-1].split(": ", 1)[-1] if fresh else ""
+            out.append(("answered", f"No longer waiting ({old.waiting[:80]})."
+                        + (f" {said[:120]}" if said else "") + f" Next: {new.next}"))
         if new.lead and new.lead != old.lead:
             out.append(("assigned", f"{new.lead} now leads this quest. Next: {new.next}"))
         old_done = {t for c, t in old.objectives if c}
