@@ -205,6 +205,9 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                 status = upd.get("status")
                 if status == "done" and not upd.get("done_met"):
                     status = "active"  # never close a quest whose definition of done isn't visibly met
+                if status == "done" and (q.authority or "autonomous") != "autonomous":
+                    q.waiting = "Sign-off: the session believes the definition of done is met"
+                    status = None      # the game master closes it
                 if status in cfgmod.STATUS_KEYS:
                     q.status = status
                 finished = {s.strip().lower() for s in upd.get("objectives_done") or [] if isinstance(s, str)}

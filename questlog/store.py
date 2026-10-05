@@ -43,9 +43,15 @@ from typing import Callable, Iterator
 
 from . import config as cfgmod
 
-FIELDS = ("title", "status", "lead", "done", "why", "next", "waiting", "size", "reward", "after", "sessions", "cwd",
+FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "sessions", "cwd",
           "match_paths", "match_keywords", "updated")
 SIZES = ("small", "medium", "large")
+AUTHORITIES = ("autonomous", "proposes", "escalates")
+AUTHORITY_NOTE = {
+    "autonomous": "you may finish and close this quest yourself",
+    "proposes": "do the work, but don't mark it done: put it in `waiting` for the game master to sign off",
+    "escalates": "propose changes (status, scope, lead) to the game master via `waiting` rather than making them",
+}
 NOTE_FILES = ("FACTION.md", "ARC.md")
 LEGACY_STATUS = {"wall": "blocked"}
 LOG_KEEP = 60
@@ -66,6 +72,7 @@ class Quest:
     size: str = ""          # small | medium | large (rewards)
     reward: str = ""        # a loot milestone the human sets for themselves
     after: str = ""         # prerequisites: comma-separated quest refs that must be done first
+    authority: str = ""     # autonomous | proposes | escalates (empty: the faction's default)
     match_paths: str = ""   # optional, comma-separated: sessions here serve this quest
     match_keywords: str = ""
     sessions: list[str] = field(default_factory=list)
@@ -97,6 +104,7 @@ class Quest:
         d = {"ref": self.ref, "faction": self.faction, "arc": self.arc, "title": self.title,
              "status": self.status, "lead": self.lead, "done": self.done, "why": self.why, "next": self.next,
              "waiting": self.waiting, "size": self.size, "reward": self.reward, "after": self.after,
+            "authority": self.authority or "autonomous",
             "current": self.current_objective, "progress": self.progress, "updated": self.updated}
         if full:
             d |= {"objectives": [{"done": c, "text": t} for c, t in self.objectives],
@@ -287,6 +295,8 @@ def load(cfg: cfgmod.Config | None = None, faction: str | None = None, *, includ
                 continue
             if not q.lead and f.lead:
                 q.lead = f.lead
+            if not q.authority:
+                q.authority = getattr(f, "authority", "") or "autonomous"
             if statuses and q.status not in statuses:
                 continue
             if lead and q.lead != lead:
@@ -372,7 +382,8 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
 
 def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done: str = "", next: str = "",
            lead: str = "", waiting: str = "", objectives: list[str] | None = None, cwd: str = "",
-           why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "") -> Quest:
+           why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "",
+           authority: str = "") -> Quest:
     answers = dict(brief or {})
     done = done or answers.get("done", "")
     why = why or answers.get("why", "")
@@ -390,7 +401,7 @@ def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done:
     qs = cfg.briefs["quest"]["required"] + cfg.briefs["quest"]["optional"]
     q = Quest(path=path, faction=faction, arc=arc, title=title, done=done, why=why, next=next, waiting=waiting,
               lead=lead or (f.lead if f else ""), cwd=cwd, size=size if size in SIZES else "", reward=reward,
-              brief=brief_markdown(answers, qs),
+              brief=brief_markdown(answers, qs), authority=authority if authority in AUTHORITIES else "",
               status="parked" if _unmet(cfg, after) else ("waiting" if waiting else "active"), after=after,
               objectives=[(False, o) for o in (objectives or [])])
     q.log.append(f"{date.today().isoformat()}: created")

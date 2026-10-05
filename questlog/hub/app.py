@@ -346,7 +346,8 @@ class Hub(App):
             head = Text()
             head.append(f"{self._up(q.title)}\n", style=f"bold {c('accent')}")
             head.append(" › ".join(x for x in ((f.name if f else q.faction), (a.name if a else "")) if x), style=c("dim"))
-            head.append(f"   {q.status}" + (f" · lead {q.lead}" if q.lead else ""), style=c("dim"))
+            head.append(f"   {q.status}" + (f" · lead {q.lead}" if q.lead else "")
+                        + (f" · {q.authority}" if q.authority and q.authority != "autonomous" else ""), style=c("dim"))
             parts: list = [head]
             if q.why:
                 parts.append(Text(f"\n“{q.why}”\n", style=f"italic {c('gold')}"))

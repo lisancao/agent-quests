@@ -71,6 +71,9 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
             lines.append(f"- Quest `{q.ref}`: {q.title}. Why: {_short(q.why, 120) or '-'}. "
                          f"Done when: {_short(q.done, 120) or '-'}. Next: {_short(q.next, 120) or '-'}"
                          + (f". Objective {q.progress}: {q.current_objective}" if q.current_objective else ""))
+            auth = q.authority or "autonomous"
+            if auth != "autonomous":
+                lines.append(f"- Authority: {auth}: {store.AUTHORITY_NOTE[auth]}")
         elif f:
             open_q = [x for x in store.load(cfg, faction=f.id, arc=hit.arc or None) if x.status in ("active", "blocked", "waiting")]
             if open_q:

@@ -129,11 +129,13 @@ def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None
 @mcp.tool()
 def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: str = "", waiting: str = "",
                  objectives: list[str] | None = None, cwd: str = "", size: str = "", reward: str = "",
-                 after: str = "", brief: dict | None = None) -> dict:
+                 after: str = "", authority: str = "", brief: dict | None = None) -> dict:
     """Create a quest (a concrete deliverable) under a faction, ideally inside an arc. The first call returns
     the brief questions (what done looks like; why it matters for the arc); call again with brief={key: answer}.
     `next` is one small first action; `size` small|medium|large; `reward` is a treat the game master sets for
-    finishing; `after` lists prerequisite quest refs (comma-separated): the quest stays parked until they're done."""
+    finishing; `after` lists prerequisite quest refs (comma-separated): the quest stays parked until they're done;
+    `authority`: autonomous (the lead may close it) | proposes (closing needs the game master's sign-off) |
+    escalates (status and scope changes are proposals)."""
     cfg = _cfg()
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
@@ -141,7 +143,8 @@ def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: 
     if miss:
         return briefs.needs_brief_response(cfg, "quest", miss)
     return store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
-                        objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after).to_dict()
+                        objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after,
+                        authority=authority).to_dict()
 
 
 @mcp.tool()
@@ -177,16 +180,29 @@ def recall(session_id: str) -> dict:
 @mcp.tool()
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
-                 after: str = "", add_objectives: list[str] | None = None, log: str = "") -> dict:
+                 after: str = "", authority: str = "", add_objectives: list[str] | None = None, log: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
     status: active | blocked | waiting | parked | done."""
     if status and status not in cfgmod.STATUS_KEYS:
         return {"error": f"status must be one of {cfgmod.STATUS_KEYS}"}
+    notes: list[str] = []
 
     def apply(q: store.Quest) -> None:
+        nonlocal status
+        auth = q.authority or "autonomous"
+        # Authority: under "proposes", finishing needs the game master's sign-off; under "escalates",
+        # any status change (and changing scope or lead) becomes a request instead of a change.
+        if status == "done" and auth in ("proposes", "escalates"):
+            q.waiting = f"Sign-off: proposed done. {log or q.save_state[:120]}".strip()
+            notes.append(f"authority is '{auth}': recorded as a sign-off request for the game master, not marked done")
+            status = ""
+        elif status and auth == "escalates":
+            q.waiting = f"Proposed status change to {status}" + (f": {log}" if log else "")
+            notes.append("authority is 'escalates': the status change was recorded as a proposal")
+            status = ""
         for k, v in (("status", status), ("next", next), ("save_state", save_state), ("lead", lead),
                      ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward),
-                     ("after", after)):
+                     ("after", after), ("authority", authority if authority in store.AUTHORITIES else "")):
             if v:
                 setattr(q, k, v)
         if waiting is not None:
@@ -197,9 +213,12 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
             from datetime import date
             q.log.append(f"{date.today().isoformat()}: {log}")
     try:
-        return store.update(ref, apply, _cfg()).to_dict()
+        out = store.update(ref, apply, _cfg()).to_dict()
     except KeyError as e:
         return {"error": str(e)}
+    if notes:
+        out["notes"] = notes
+    return out
 
 
 @mcp.tool()

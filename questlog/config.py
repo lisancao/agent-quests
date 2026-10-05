@@ -103,6 +103,7 @@ class Faction:
     principles: str = ""
     success_looks_like: str = ""  # direction more than finish line; factions are often ongoing
     lead: str = ""
+    authority: str = ""           # default for its quests: autonomous | proposes | escalates
     private: bool = False
     arcs: list[Arc] = field(default_factory=list)
     match: Match = field(default_factory=Match)
@@ -217,7 +218,7 @@ def _split_list(v: str) -> list[str]:
 
 def _apply_note(obj, meta: dict, body: str) -> None:
     """Fill empty fields of a Faction/Arc from its note (toml wins when both set)."""
-    for k in ("name", "intent", "strategy", "principles", "success_looks_like", "goal", "complete_when", "lead"):
+    for k in ("name", "intent", "strategy", "principles", "success_looks_like", "goal", "complete_when", "lead", "authority"):
         if k in meta and hasattr(obj, k) and (not getattr(obj, k) or (k == "name" and getattr(obj, k) == obj.id)):
             setattr(obj, k, meta[k])
     if "private" in meta and hasattr(obj, "private") and not obj.private:
@@ -256,7 +257,7 @@ def load(path: Path | None = None) -> Config:
         fac = Faction(id=str(f["id"]), name=f.get("name", f["id"]),
                       intent=f.get("intent") or f.get("charter", ""), strategy=f.get("strategy", ""),
                       principles=f.get("principles", ""), success_looks_like=f.get("success_looks_like", ""),
-                      lead=f.get("lead", ""), private=bool(f.get("private", False)),
+                      lead=f.get("lead", ""), authority=f.get("authority", ""), private=bool(f.get("private", False)),
                       match=Match.from_raw(f.get("match")))
         for a in f.get("arcs") or []:
             if isinstance(a, dict) and a.get("id"):

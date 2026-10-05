@@ -37,7 +37,10 @@ def check(session_id: str, transcript_path: str = "", cfg: cfgmod.Config | None 
         if not q.next:
             reasons.append("it has no next step")
         if q.objectives and all(c for c, _ in q.objectives) and q.status != "done":
-            reasons.append("every objective is ticked but it's still open (is the definition of done met?)")
+            if (q.authority or "autonomous") == "autonomous":
+                reasons.append("every objective is ticked but it's still open (is the definition of done met?)")
+            elif not q.waiting:
+                reasons.append("every objective is ticked: ask the game master to sign it off (put it in `waiting`)")
         if not reasons:
             return None
         return (f"Before you finish: this session worked on quest `{q.ref}` ({q.title}), and "
