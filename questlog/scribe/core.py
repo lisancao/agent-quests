@@ -42,6 +42,7 @@ Reply with ONLY a JSON object:
  "title": "<5-8 word title for the session>",
  "digest": "<2-4 sentences: what was done and where it stands, useful to a sibling session>",
  "journal_entry": "<one line for the quest's log: what this session moved forward>",
+ "advice": "<one specific sentence for whoever picks this work up next: the exact blocker, file, command, or open decision. Concrete, never generic ('consider testing'); empty string if nothing useful>",
  "decisions": ["<decision or dead end worth remembering>"],
  "deeds": [{"text": "<a concrete accomplishment>", "size": "small" | "medium" | "large"}],
  "suggested_quest": {"faction": "...", "arc": "...", "title": "...", "done": "...", "why": "..."} or null,
@@ -143,7 +144,7 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
         bound_block = f"This session is BOUND to quest `{bound.ref}`. Its file as it stands:\n{bound.path.read_text()}\n"
     voice_block = ("\nVOICE: write each deed's text and the journal_entry in the voice of an in-world RPG "
                    "quest journal (vivid, a little playful, past tense), while staying faithful and specific: no "
-                   "invented events. Keep digest, decisions, save_state and next plain and factual; agents read those.\n"
+                   "invented events. Keep digest, decisions, advice, save_state and next plain and factual; agents read those.\n"
                    if cfg.journal_voice else "")
     prompt = (PROMPT.replace("{human}", cfg.human).replace("{goal_map}", goal_map(cfg)).replace("{voice_block}", voice_block)
               .replace("{bound_block}", bound_block).replace("{transcript}", claude_code.condense(tpath)))
@@ -174,6 +175,7 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
         "faction": faction if keep else "", "arc": arc if keep else "",
         "quests": [quest_ref] if quest_ref and keep else [],
         "digest": out.get("digest", ""), "decisions": out.get("decisions") or [], "confidence": conf,
+        "advice": (out.get("advice") or "").strip()[:300],
     })
     deeds = []
     large_seen = False

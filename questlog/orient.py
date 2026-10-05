@@ -29,8 +29,21 @@ def _siblings(cfg: cfgmod.Config, faction: str, arc: str, exclude: str) -> list[
     out = []
     for r in rows:
         day = datetime.fromtimestamp(r.get("ended", r.get("recorded", 0))).strftime("%b %d")
-        out.append(f"- {day} `{r['id'][:8]}` {_short(r.get('title', ''), 50)}: {_short(r.get('digest', ''), 140)}")
+        line = f"- {day} `{r['id'][:8]}` {_short(r.get('title', ''), 50)}: {_short(r.get('digest', ''), 140)}"
+        if r.get("advice"):
+            line += f" Tip: {_short(r['advice'], 140)}"
+        out.append(line)
     return out
+
+
+def _quest_tip(cfg: cfgmod.Config, ref: str, exclude: str) -> str:
+    """The most recent concrete advice left by a session that worked on this quest."""
+    rows = [r for r in ledger.sessions(cfg).values()
+            if ref in (r.get("quests") or []) and r.get("advice") and r.get("id") != exclude]
+    if not rows:
+        return ""
+    r = max(rows, key=lambda r: r.get("ended", r.get("recorded", 0)))
+    return f"- Tip from the last session on it (`{r['id'][:8]}`): {_short(r['advice'], 220)}"
 
 
 def resolve(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: str = "") -> "match.Hit | None":
@@ -71,6 +84,9 @@ def briefing(cfg: cfgmod.Config, session_id: str = "", cwd: str = "", prompt: st
             lines.append(f"- Quest `{q.ref}`: {q.title}. Why: {_short(q.why, 120) or '-'}. "
                          f"Done when: {_short(q.done, 120) or '-'}. Next: {_short(q.next, 120) or '-'}"
                          + (f". Objective {q.progress}: {q.current_objective}" if q.current_objective else ""))
+            tip = _quest_tip(cfg, q.ref, session_id)
+            if tip:
+                lines.append(tip)
             auth = q.authority or "autonomous"
             if auth != "autonomous":
                 lines.append(f"- Authority: {auth}: {store.AUTHORITY_NOTE[auth]}")
