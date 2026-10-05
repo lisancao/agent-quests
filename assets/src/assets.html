@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Agent Quests assets</title>
+<!-- Source for the README images. Render with: python assets/src/render.py
+     Fonts: Press Start 2P and VT323 (both SIL Open Font License). -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07060e;--k:#0b0a14;--panel:#12111f;--line:#2a2846;--text:#e9e6ff;--dim:#8f8bb3;--soft:#c9c5ea;
+  --c:#48F2FB;--m:#E867EA;--g:#56d6a8;--y:#ffd166;--t:#4EA3BA;--p:#c678dd}
+body{margin:0;background:var(--bg);-webkit-font-smoothing:none;font-family:'VT323',monospace;color:var(--text)}
+img{image-rendering:pixelated;display:block}
+.px{font-family:'Press Start 2P',monospace}
+.sheet{padding:40px;display:flex;flex-direction:column;gap:60px;align-items:flex-start}
+.frame{position:relative;overflow:hidden;background:var(--k)}
+.scan::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+.box{position:relative;border:2px solid var(--line);background:var(--panel)}
+.lbl{font-family:'Press Start 2P';font-size:9px;color:var(--dim)}
+.chip{font-family:'Press Start 2P';font-size:9px;padding:6px 8px;border:2px solid}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<!-- 01 banner -->
+<div id="banner" class="frame scan" style="width:1280px;height:640px;background-image:radial-gradient(#1f1d36 1px,transparent 1px);background-size:16px 16px;">
+  <div class="px" style="position:absolute;left:0;right:0;top:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:2px solid var(--line);font-size:11px;color:var(--dim);letter-spacing:1px;">
+    <div style="display:flex;gap:24px;"><span style="color:var(--c)">SYS://QUESTLOG</span><span>FACTIONS · ARCS · QUESTS</span></div>
+    <div style="display:flex;gap:10px;align-items:center;"><div style="width:10px;height:10px;background:var(--g)"></div><span style="color:var(--g)">SCRIBE: ONLINE</span></div>
+  </div>
+  <div style="position:absolute;left:96px;top:176px;width:6px;height:6px;background:var(--c)"></div>
+  <div style="position:absolute;left:640px;top:92px;width:6px;height:6px;background:var(--m)"></div>
+  <div style="position:absolute;left:1180px;top:120px;width:4px;height:4px;background:var(--text)"></div>
+  <div style="position:absolute;left:760px;top:470px;width:4px;height:4px;background:var(--c)"></div>
+  <div style="position:absolute;left:1210px;top:420px;width:6px;height:6px;background:var(--m)"></div>
+  <div style="position:absolute;left:880px;top:150px;width:4px;height:4px;background:var(--y)"></div>
+
+  <div style="position:absolute;left:80px;top:104px;display:flex;flex-direction:column;gap:28px;">
+    <div class="px" style="align-self:flex-start;background:var(--m);color:var(--k);padding:10px 14px;font-size:12px;clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));">▶ NEW QUEST AVAILABLE</div>
+    <div class="px" style="font-size:84px;line-height:1.15;color:var(--c);text-shadow:6px 6px 0 var(--m),12px 12px 0 #2a1440;">AGENT<br>QUESTS</div>
+    <div style="font-size:38px;line-height:1.05;max-width:660px;">Contextual goals and state for your agents. A scribe keeps it current.</div>
+    <div class="px" style="display:flex;gap:10px;font-size:11px;">
+      <div style="border:2px solid var(--c);color:var(--c);padding:8px 10px;">LVL 6</div>
+      <div style="border:2px solid var(--y);color:var(--y);padding:8px 10px;">XP 1720</div>
+      <div style="border:2px solid var(--g);color:var(--g);padding:8px 10px;">SIBLINGS: SYNCED</div>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:860px;top:110px;width:340px;height:440px;">
+    <img data-s="marker" style="position:absolute;left:122px;top:0;width:96px;">
+    <img data-s="agent" style="position:absolute;left:62px;top:120px;width:216px;">
+    <img data-s="gem" style="position:absolute;left:0;top:150px;width:48px;">
+    <img data-s="quill" style="position:absolute;left:296px;top:180px;width:44px;">
+    <img data-s="chest" style="position:absolute;left:250px;top:300px;width:60px;">
+    <div style="position:absolute;left:20px;top:356px;width:300px;height:12px;background:var(--c)"></div>
+    <div style="position:absolute;left:36px;top:368px;width:268px;height:8px;background:var(--t)"></div>
+    <div style="position:absolute;left:60px;top:384px;width:220px;height:6px;background:var(--line)"></div>
+    <div class="px" style="position:absolute;left:0;top:408px;width:340px;text-align:center;font-size:10px;color:var(--dim);letter-spacing:1px;">AGENT · ORIENTED</div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;height:52px;display:flex;align-items:center;gap:24px;padding:0 32px;background:var(--panel);border-top:2px solid var(--line);font-size:26px;color:var(--dim);">
+    <span style="color:var(--m)">◆</span><span>MCP SERVER</span><span style="color:var(--m)">◆</span><span>CLI</span><span style="color:var(--m)">◆</span><span>CLAUDE CODE SKILL</span><span style="color:var(--m)">◆</span><span>PUCK</span><span style="color:var(--m)">◆</span><span>RPG QUEST JOURNAL</span>
+  </div>
+</div>
+
+<!-- 02 the loop -->
+<div id="loop" class="frame scan" style="width:1280px;height:420px;">
+  <div class="px" style="position:absolute;left:40px;top:32px;font-size:12px;color:var(--dim);letter-spacing:2px;">THE LOOP · EVERY SESSION</div>
+  <div id="loopRow" style="position:absolute;left:40px;right:40px;top:84px;display:flex;align-items:stretch;gap:0;"></div>
+  <div style="position:absolute;left:40px;right:40px;bottom:28px;display:flex;justify-content:space-between;align-items:center;font-size:24px;color:var(--dim);">
+    <span><span style="color:var(--m)">◆</span> plain markdown you own · one cheap LLM pass per session · any MCP agent</span>
+    <span class="px" style="font-size:10px;color:var(--g)">↺ NEXT SESSION STARTS FROM THE SAVE STATE</span>
+  </div>
+</div>
+
+<!-- 03 journal HUD -->
+<div id="hud" class="frame scan" style="width:1440px;height:900px;display:flex;flex-direction:column;">
+  <div style="height:60px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:2px solid var(--line);background:var(--panel);">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img data-s="marker" style="width:24px;">
+      <div class="px" style="font-size:14px;color:var(--c)">QUEST JOURNAL</div>
+    </div>
+    <div id="tabs" class="px" style="display:flex;gap:2px;font-size:10px;"></div>
+    <div class="px" style="display:flex;align-items:center;gap:10px;font-size:10px;color:var(--g)"><div style="width:8px;height:8px;background:var(--g)"></div>SCRIBE ONLINE</div>
+  </div>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr) 330px;gap:16px;padding:16px;">
+    <div class="box" style="display:flex;flex-direction:column;min-height:0;">
+      <div style="position:absolute;left:-2px;top:-2px;width:12px;height:12px;border-left:2px solid var(--c);border-top:2px solid var(--c)"></div>
+      <div style="position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-right:2px solid var(--c);border-bottom:2px solid var(--c)"></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:2px solid var(--line);">
+        <img data-s="banner" style="width:30px;">
+        <div style="display:flex;flex-direction:column;gap:6px;"><div class="lbl">MAIN QUESTS · FACTION</div><div class="px" style="font-size:12px;">Become an overlord</div></div>
+      </div>
+      <div id="tree" style="flex:1;overflow:hidden;padding:8px 0;display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="padding:12px 16px;border-top:2px solid var(--line);display:flex;gap:12px;font-size:19px;color:var(--dim);white-space:nowrap;">
+        <span style="display:flex;gap:6px;align-items:center;"><span style="width:8px;height:8px;background:var(--c)"></span>active</span>
+        <span style="display:flex;gap:6px;align-items:center;"><span style="width:8px;height:8px;background:var(--y)"></span>waiting</span>
+        <span style="display:flex;gap:6px;align-items:center;"><span style="width:8px;height:8px;border:2px solid var(--g);box-sizing:border-box"></span>done</span>
+        <span>🔒 locked</span>
+      </div>
+    </div>
+
+    <div id="detail" class="box" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;"></div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-height:0;">
+      <div class="box" style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;gap:14px;align-items:center;">
+          <div style="background:var(--k);padding:8px;border:2px solid var(--c)"><img data-s="agent" style="width:48px;"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;"><div class="px" style="font-size:13px;">SAM</div><div style="font-size:22px;color:var(--dim)">Overlord · LVL 6</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="px" style="display:flex;justify-content:space-between;font-size:9px;"><span style="color:var(--y)">XP</span><span style="color:var(--dim)">1720 / 1800</span></div>
+          <div id="xp" style="display:flex;gap:2px;"></div>
+        </div>
+      </div>
+      <div class="box" style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+        <div class="lbl" style="font-size:10px;">REPUTATION</div>
+        <div id="rep" style="display:flex;flex-direction:column;gap:12px;"></div>
+      </div>
+      <div class="box" style="flex:1;min-height:0;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+        <div class="lbl" style="font-size:10px;display:flex;gap:8px;align-items:center;"><img data-s="siblings" style="width:14px;">PARTY · SIBLING SESSIONS</div>
+        <div id="sibs" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:40px;flex:none;display:flex;align-items:center;gap:16px;padding:0 24px;background:var(--panel);border-top:2px solid var(--line);font-size:22px;white-space:nowrap;overflow:hidden;">
+    <span class="px" style="font-size:9px;color:var(--k);background:var(--g);padding:5px 7px;">SCRIBE</span>
+    <span style="color:var(--soft)">recorded 3 deeds</span><span style="color:var(--y)">+45 XP</span><span style="color:var(--dim)">·</span>
+    <span style="color:var(--soft)">rumour: “Soundproof the monologue chamber”</span><span style="color:var(--dim)">·</span>
+    <span style="color:var(--soft)">Become an overlord → Renowned</span>
+  </div>
+</div>
+
+<!-- 04 notifications -->
+<div id="toasts" class="frame scan" style="width:1280px;padding:40px;box-sizing:border-box;display:grid;grid-template-columns:584px 584px;gap:24px 32px;"></div>
+
+<!-- 05 divider strip and footer plate -->
+<div id="divider" class="frame" style="width:1280px;height:40px;display:flex;align-items:center;gap:8px;padding:0 0;background:transparent;">
+  <div style="flex:1;height:4px;background:var(--line)"></div>
+  <div style="width:8px;height:8px;background:var(--c)"></div>
+  <div style="width:12px;height:12px;background:var(--m);transform:rotate(45deg)"></div>
+  <div style="width:8px;height:8px;background:var(--c)"></div>
+  <div style="flex:1;height:4px;background:var(--line)"></div>
+</div>
+
+<div id="footer" class="frame" style="width:1280px;padding:8px;box-sizing:border-box;">
+  <div class="px" style="position:relative;border:2px solid var(--c);background:var(--panel);padding:20px 24px;display:flex;justify-content:center;gap:24px;font-size:13px;">
+    <div style="position:absolute;left:6px;top:6px;width:6px;height:6px;background:var(--c)"></div>
+    <div style="position:absolute;right:6px;top:6px;width:6px;height:6px;background:var(--c)"></div>
+    <div style="position:absolute;left:6px;bottom:6px;width:6px;height:6px;background:var(--c)"></div>
+    <div style="position:absolute;right:6px;bottom:6px;width:6px;height:6px;background:var(--c)"></div>
+    <span style="color:var(--c)">QUEST LOG: LOADED</span><span style="color:var(--m)">◆</span><span style="color:var(--g)">SIBLINGS: SYNCED</span><span style="color:var(--m)">◆</span><span style="color:var(--y)">READY FOR DEPLOYMENT</span>
+  </div>
+</div>
+
+<!-- 06 sprite kit (reference) -->
+<div id="kit" class="frame scan" style="width:1280px;padding:40px;box-sizing:border-box;display:grid;grid-template-columns:repeat(5,1fr);gap:16px;"></div>
+
+</div>
+
+<script>
+const PAL={k:'#0b0a14',b:'#1e2a4a',c:'#48F2FB',m:'#E867EA',w:'#f2f0ff',g:'#56d6a8',y:'#ffd166',p:'#c678dd',t:'#4EA3BA',r:'#ff5d73'};
+const SPR={
+agent:["....kmmk....",".....kk.....","..kkkkkkkk..",".kbbbbbbbbk.",".kbccbbccbk.",".kbccbbccbk.",".kbbbbbbbbk.",".kbbmmmmbbk.","..kkkkkkkk..","...kbbbbk...",".kkbcbbcbkk.",".kbbbbbbbbk.","kbbkbbbbkbbk","kkk.kkkk.kkk"],
+marker:["....kkkk....","...kmmmmk...","...kmwmmk...","...kmmmmk...","....kmmk....","....kmmk....","....kmmk....",".....kk.....","............","....kkkk....","....kmmk....","....kkkk...."],
+gem:["....kkkk....","...kwccck...","..kwcccctk..",".kwcccccctk.",".kkkkkkkkkk.",".ktcccccctk.","..ktcccctk..","...ktcctk...","....kttk....",".....kk....."],
+chest:["..kkkkkkkk..",".kppppppppk.","kppmmmmmmppk","kkkkkyykkkkk","kpppkyykpppk","kpppkkkkpppk","kppppppppppk","kmmmmmmmmmmk","kkkkkkkkkkkk"],
+hourglass:["kkkkkkkkkk",".kwwwwwwk.",".kyyyyyyk.","..kyyyyk..","...kyyk...","....kk....","...kwyk...","..kwwyyk..",".kwyyyyyk.",".kyyyyyyk.","kkkkkkkkkk"],
+quill:[".........kk","........kmk",".......kmmk","......kmmk.",".....kmmwk.","....kmmwk..","...kmmwk...","..kmwwk....","..kwkk.....",".kk........","kk........."],
+banner:["kkkkkkkkkk","kcccccccck","kcmmmmmmck","kcmwwwwmck","kcmmwwmmck","kcmmmmmmck","kcccccccck","kccckkccck","kcck..kcck","kck....kck","kk......kk"],
+shark:["......kk........",".....ktk........","..kkkttkkkk...kk",".ktttttttttkk.kt","kwttktttttttkktk","kwwwwwttttttttk.",".kwwwwwwwttkktk.","..kkkkkkkkk..kk."],
+siblings:[".kkk....kkk.","kcwck..kmwmk","kccck..kmmmk",".kkk....kkk.","..k......k..","...kk..kk...",".....kk.....","....kggk....","....kggk....",".....kk....."],
+scroll:[".kkkkkkkkkk.","kwwwwwwwwwwk",".kkkkkkkkkk.","..kcccccck..","..kckkkkck..","..kcccccck..","..kckkkcck..","..kcccccck..",".kkkkkkkkkk.","kwwwwwwwwwwk",".kkkkkkkkkk."]
+};
+function svg(rows){const h=rows.length,w=Math.max(...rows.map(r=>r.length));let s='';rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(PAL[ch])s+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[ch]}"/>`;}));return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${s}</svg>`;}
+const S={};for(const k in SPR)S[k]='data:image/svg+xml;utf8,'+encodeURIComponent(svg(SPR[k]));
+window.SPRITE_SVG=Object.fromEntries(Object.keys(SPR).map(k=>[k,svg(SPR[k])]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const segs=(n,on,color,h)=>Array.from({length:n},(_,i)=>`<div style="flex:1;height:${h}px;background:${i<on?color:'var(--line)'}"></div>`).join('');
+
+// the loop
+const LOOP=[
+  ['marker','var(--c)','ORIENT','First prompt: which goal this serves, your strategy, the quest, a tip from last time, what siblings did.'],
+  ['agent','var(--m)','WORK','Any agent, any harness. Reads and updates state over MCP; Puck deals out the quests.'],
+  ['quill','var(--g)','RECORD','The scribe reads the session: digest, deeds and XP, the save state, one tip for next time.'],
+  ['chest','var(--y)','REVIEW','/quest, the brief, or the journal: what moved, what waits on you. Nothing decays.'],
+];
+$('loopRow').innerHTML=LOOP.map(([s,col,t,d],i)=>`
+  <div class="box" style="flex:1;padding:20px 18px;display:flex;flex-direction:column;gap:14px;border-color:${col}">
+    <div style="display:flex;align-items:center;gap:14px;"><div style="width:56px;height:56px;background:var(--k);display:flex;align-items:center;justify-content:center;border:2px solid ${col}"><img src="${S[s]}" style="width:34px"></div>
+    <div class="px" style="font-size:14px;color:${col}">${i+1}. ${t}</div></div>
+    <div style="font-size:25px;line-height:1.05;color:var(--soft)">${d}</div>
+  </div>${i<3?`<div class="px" style="width:40px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:16px">▶</div>`:''}`).join('');
+
+// hud data
+const QUESTS=[
+{id:'install-the-shark-tank',arc:'lair',title:'Install the shark tank',status:'active',lead:'claude',auth:'PROPOSES',size:'M',done:'Sharks in, glass holds, trapdoor drops on cue',why:'No lair is taken seriously without one',next:'Fix the trapdoor that opens on its own',waiting:'Pick laser sharks or regular sharks',reward:'A new cape',
+ tip:'The trapdoor fires on the elevator\'s vibration; raise the threshold in lair/trapdoor.py before touching the wiring.',
+ obj:[['Dig the pit',1],['Install the glass',1],['Fix the trapdoor',0],['Sharks',0]],
+ save:'Pit dug, glass installed and sealed. The trapdoor opens whenever the elevator passes; vibration sensor suspected.',
+ log:[['2026-03-10','created'],['2026-03-12','glass sealed; found the trapdoor bug']]},
+{id:'wire-the-self-destruct',arc:'lair',title:'Wire the self-destruct',status:'active',size:'L'},
+{id:'dramatic-entrance',arc:'lair',title:'A dramatic entrance',status:'waiting',size:'S'},
+{id:'unveil-the-doomsday-clock',arc:'lair',title:'Unveil the doomsday clock',status:'locked',size:'M'},
+{id:'onboarding-doc',arc:'henchmen',title:'Henchman onboarding doc',status:'active',size:'M'},
+{id:'jumpsuit-policy',arc:'henchmen',title:'Jumpsuit policy',status:'done',size:'S'},
+];
+const ARCS=[['lair','BUILD THE VOLCANO LAIR'],['henchmen','RECRUIT HENCHMEN']];
+const SEL='install-the-shark-tank';
+$('tabs').innerHTML=['JOURNAL','CHARACTER','CODEX','CHRONICLE','PARTY','COMMONS','RUMOURS'].map((t,i)=>
+  i===0?`<div style="background:var(--c);color:var(--k);padding:10px 12px">${t}</div>`
+       :`<div style="color:var(--dim);padding:10px 12px;display:flex;gap:6px">${t}${t==='RUMOURS'?'<span style="color:var(--m)">2</span>':''}</div>`).join('');
+const dot=st=>st==='active'?'<div style="width:10px;height:10px;flex:none;background:var(--c)"></div>'
+ :st==='waiting'?'<div style="width:10px;height:10px;flex:none;background:var(--y)"></div>'
+ :st==='done'?'<div style="width:10px;height:10px;flex:none;border:2px solid var(--g);box-sizing:border-box"></div>'
+ :'<div style="width:10px;flex:none;font-size:14px;line-height:10px">🔒</div>';
+$('tree').innerHTML=ARCS.map(([id,name])=>{const qs=QUESTS.filter(q=>q.arc===id);return `
+  <div style="display:flex;flex-direction:column;">
+    <div class="px" style="display:flex;justify-content:space-between;padding:10px 16px 6px;font-size:9px;color:var(--m);letter-spacing:1px;"><span>› ${name}</span><span style="color:var(--dim)">${qs.filter(q=>q.status==='done').length}/${qs.length}</span></div>
+    ${qs.map(q=>`<div style="position:relative;display:flex;align-items:center;gap:12px;padding:8px 16px 8px 20px;font-size:24px;line-height:1;${q.id===SEL?'background:rgba(72,242,251,.10);border-left:4px solid var(--c);padding-left:16px;':''}">
+      ${dot(q.status)}<span style="flex:1;color:${q.status==='locked'?'var(--dim)':'var(--text)'}">${q.title}</span><span style="font-size:18px;color:var(--dim)">${q.size}</span></div>`).join('')}
+  </div>`}).join('');
+const q=QUESTS[0], nd=q.obj.filter(o=>o[1]).length;
+const cell=(lab,col,body,extra='')=>`<div style="background:var(--k);padding:12px 14px;display:flex;flex-direction:column;gap:6px;${extra}"><div class="px" style="font-size:9px;color:${col};display:flex;gap:8px;align-items:center">${lab}</div><div style="font-size:24px;line-height:1.05">${body}</div></div>`;
+$('detail').innerHTML=`
+  <div style="position:absolute;right:-2px;top:-2px;width:12px;height:12px;border-right:2px solid var(--m);border-top:2px solid var(--m)"></div>
+  <div style="position:absolute;left:-2px;bottom:-2px;width:12px;height:12px;border-left:2px solid var(--m);border-bottom:2px solid var(--m)"></div>
+  <div style="padding:22px 26px 18px;border-bottom:2px solid var(--line);display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:20px;color:var(--dim)">overlord/${q.arc}/${q.id}</div>
+      <div style="display:flex;gap:8px;">
+        <div class="chip" style="border-color:var(--c);color:var(--c)">ACTIVE</div>
+        <div class="chip" style="border-color:var(--line);color:var(--dim)">LEAD: ${q.lead}</div>
+        <div class="chip" style="border-color:var(--p);color:var(--p)">${q.auth}</div>
+      </div>
+    </div>
+    <div class="px" style="font-size:22px;line-height:1.35">${q.title}</div>
+  </div>
+  <div style="flex:1;overflow:hidden;padding:16px 26px;display:flex;flex-direction:column;gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      ${cell('DONE WHEN','var(--g)',q.done)}${cell('WHY','var(--c)',q.why)}
+      ${cell('NEXT · 5 MIN','var(--m)',q.next)}
+      ${cell(`<img src="${S.hourglass}" style="width:12px">WAITING ON SAM`,'var(--y)',q.waiting,'border:2px solid var(--y);')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div class="px" style="font-size:10px;color:var(--dim)">OBJECTIVES · ${nd}/${q.obj.length}</div>
+      ${q.obj.map(([t,d],i)=>d?`<div style="display:flex;align-items:center;gap:14px;font-size:24px;line-height:1"><div style="width:18px;height:18px;flex:none;background:var(--g);box-shadow:inset 0 0 0 4px var(--panel);outline:2px solid var(--g)"></div><span style="color:var(--dim);text-decoration:line-through">${t}</span></div>`
+        :`<div style="display:flex;align-items:center;gap:14px;font-size:24px;line-height:1"><div style="width:18px;height:18px;flex:none;outline:2px solid var(--text)"></div><span>${t}</span>${i===nd?'<span class="px" style="font-size:9px;color:var(--c)">◂ CURRENT</span>':''}</div>`).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="px" style="font-size:10px;color:var(--dim)">SAVE STATE</div>
+      <div style="font-size:24px;line-height:1.1;border-left:4px solid var(--t);padding-left:14px">${q.save}</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-start;background:rgba(232,103,234,.08);border:2px dashed var(--m);padding:12px 14px;">
+      <img src="${S.scroll}" style="width:22px;flex:none;margin-top:2px">
+      <div style="display:flex;flex-direction:column;gap:6px"><div class="px" style="font-size:9px;color:var(--m)">TIP FROM THE LAST SESSION</div><div style="font-size:23px;line-height:1.05;color:var(--soft)">${esc(q.tip)}</div></div>
+    </div>
+  </div>
+  <div style="padding:14px 26px;border-top:2px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;gap:10px;align-items:center;font-size:22px"><img src="${S.chest}" style="width:24px"><span style="color:var(--dim)">REWARD</span><span style="color:var(--y)">${q.reward}</span></div>
+    <div class="px" style="display:flex;gap:8px;font-size:10px;">
+      <div style="background:var(--c);color:var(--k);padding:10px 12px">⏎ WORK</div>
+      <div style="border:2px solid var(--line);color:var(--dim);padding:8px 12px">E EDIT</div>
+    </div>
+  </div>`;
+$('xp').innerHTML=segs(24,20,'var(--y)',12);
+$('rep').innerHTML=[['Become an overlord','Renowned',8],['Master the monologue','Respected',5],['Fund the doomsday device','Recognized',3],['Open-source evil','Unknown',1]].map(([n,t,v])=>`
+  <div style="display:flex;flex-direction:column;gap:4px;"><div style="display:flex;justify-content:space-between;font-size:20px;line-height:1"><span>${n}</span><span style="color:var(--m)">${t}</span></div><div style="display:flex;gap:2px">${segs(10,v,'var(--m)',6)}</div></div>`).join('');
+$('sibs').innerHTML=[['Mar 12','5f2c91ab','Trapdoor debugging: glass sealed; the trapdoor opens when the elevator passes.'],['Mar 11','a07d3e44','Henchman onboarding: drafted the jumpsuit policy; two recruits asked about dental.'],['Mar 11','c3e810f2','Blueprint review: moved the shark tank one floor down, closer to the trapdoor.']].map(([d,id,t])=>`
+  <div style="display:flex;flex-direction:column;gap:2px;padding-bottom:10px;border-bottom:2px dashed var(--line)"><div style="font-size:18px;color:var(--t)">${d} · ${id}</div><div style="font-size:21px;line-height:1.05;color:var(--soft)">${t}</div></div>`).join('');
+
+// toasts
+$('toasts').innerHTML=[
+  ['var(--g)','agent','AGENT ORIENTED','Serving: Build the volcano lair','Matched by folder ~/lair/blueprints'],
+  ['var(--c)','marker','QUEST UPDATED','Install the shark tank','Glass sealed · next: fix the trapdoor · +45 XP'],
+  ['var(--m)','chest','QUEST COMPLETE','Jumpsuit policy','Reward: a spare jumpsuit · +100 XP'],
+  ['var(--y)','gem','ACHIEVEMENT UNLOCKED','Evil Genius','Five quests done for Become an overlord'],
+].map(([col,s,h,t,sub])=>`
+  <div style="position:relative;height:128px;display:flex;background:var(--panel);border:2px solid ${col}">
+    <div style="width:120px;flex:none;background:${col};display:flex;align-items:center;justify-content:center"><img src="${S[s]}" style="width:56px"></div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:10px;justify-content:center">
+      <div class="px" style="font-size:12px;color:${col};letter-spacing:1px">${h}</div>
+      <div style="font-size:28px;line-height:1">${t}</div>
+      <div style="font-size:22px;color:var(--dim)">${sub}</div>
+    </div>
+  </div>`).join('');
+
+// kit
+$('kit').innerHTML=[['agent','AGENT',72],['marker','QUEST',60],['banner','FACTION',60],['scroll','BRIEF',66],['quill','SCRIBE',66],['gem','XP',66],['chest','LOOT',72],['hourglass','WAITING',56],['siblings','SIBLINGS',66],['shark','SHARK',112]].map(([k,l,w])=>`
+  <div style="background:var(--panel);border:2px solid var(--line);height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+    <div style="height:84px;display:flex;align-items:center"><img src="${S[k]}" style="width:${w}px"></div>
+    <div class="px" style="font-size:10px;color:var(--dim)">${l}</div>
+  </div>`).join('');
+
+document.querySelectorAll('img[data-s]').forEach(i=>i.src=S[i.dataset.s]);
+</script>
+</body>
+</html>

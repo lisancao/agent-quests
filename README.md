@@ -1,6 +1,4 @@
-<h1 align="center">agent-quests</h1>
-
-<p align="center"><b>Contextual goals and state for your agents.</b></p>
+<p align="center"><img src="assets/banner.png" alt="Agent Quests: contextual goals and state for your agents. A scribe keeps it current." width="100%"></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/STATUS-ACTIVE_QUEST-E867EA?style=for-the-badge&logo=gnu-bash&logoColor=white" alt="Status">
@@ -11,12 +9,10 @@
 </p>
 
 <p align="center">
-<code>[ LVL 6 ] [ XP 1305 ] [ FACTIONS: 5 ] [ ACTIVE QUEST: LOADED ] [ SCRIBE: ONLINE ]</code>
+<code>[ LVL 6 ] [ XP 1720 ] [ FACTIONS: 5 ] [ ACTIVE QUEST: LOADED ] [ SCRIBE: ONLINE ]</code>
 </p>
 
-<p align="center">
-  <code>⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡</code>
-</p>
+<p align="center"><img src="assets/divider.png" alt="" width="100%"></p>
 
 Agents are good at the task in front of them and blind to why it matters. Every session starts cold: it doesn't know the goal behind the request, what "done" means, what was decided last time, or that three other sessions are working toward the same thing. So you re-explain, and each session optimizes for the literal ask.
 
@@ -51,6 +47,8 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
 
 ### How it fits together
 
+<p align="center"><img src="assets/loop.png" alt="The loop: orient, work, record, review" width="100%"></p>
+
 ```
   +--------------------+   orient (hook / MCP)    +----------------------+
   |   Your agents      | <──────────────────────  |   questlog           |
@@ -73,9 +71,7 @@ Contextual policies tell an agent what it may do here. Contextual goals tell it 
   +--------------------+                          +----------------------+
 ```
 
-<p align="center">
-  <code>⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡ ─── ❖ ─── ⚡</code>
-</p>
+<p align="center"><img src="assets/divider.png" alt="" width="100%"></p>
 
 ## Getting started
 
@@ -266,6 +262,8 @@ Optional ones (approach, who cares, risks, size, a midpoint check) can be answer
 
 Everything is derived from the files and the ledger. Nothing decays: no streaks, no overdue lists, no penalties.
 
+<p align="center"><img src="assets/toasts.png" alt="Notifications: agent oriented, quest updated, quest complete, achievement unlocked" width="100%"></p>
+
 ## The game master and Puck
 
 **You are the game master:** you define the game (factions, arcs, quests, what done means). Agents play it.
@@ -304,6 +302,8 @@ Several agents often work toward one goal at once. These keep them from tripping
 **Advice for the next session.** The scribe ends each session record with one concrete sentence for whoever picks the work up next (the blocker, the file, the command), and the next session on that quest sees it in its orientation. Generic advice ("consider adding tests") is discouraged; a specific pointer is what saves the next session its warm-up.
 
 ## The journal
+
+<p align="center"><img src="assets/hud.png" alt="The quest journal: quests by arc, the selected quest page with done-when, why, next, waiting, objectives, save state and a tip from the last session, plus the character sheet, reputation and sibling sessions" width="100%"></p>
 
 `questlog hub` (or `/quest hub`) opens a terminal quest journal: main quests (factions › questlines with progress pips › quests), side quests and completed ones on the left; the selected quest's page on the right, with its flavour line (why), definition of done, objectives with the current one marked, notes, journal entries and reward. Other pages: **Character** (level, reputation, achievements, inventory), **Codex** (faction lore and your agents as allies), **Chronicle** (deeds), **Party** (recent sessions), **Commons** and **Rumours** (quests the scribe thinks should exist).
 
@@ -356,9 +356,7 @@ Plain markdown you can read and edit anywhere (Obsidian works well), plus a hidd
 Writes are atomic and locked, so several agents can update at once.
 
 
-<pre align="center"><code>┌─────────────────────────────────────────────────────────────┐
-│ QUEST LOG: LOADED · SIBLINGS: SYNCED · READY FOR DEPLOYMENT │
-└─────────────────────────────────────────────────────────────┘</code></pre>
+<p align="center"><img src="assets/footer.png" alt="Quest log: loaded. Siblings: synced. Ready for deployment." width="100%"></p>
 
 ## Setup
 
