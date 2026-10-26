@@ -1,0 +1,9 @@
+# Scribe idle Omnigent sessions that are attached to quests. Not installed by questlog:
+# copy to ~/.config/systemd/user/ together with the .timer.
+[Unit]
+Description=questlog: scribe idle Omnigent sessions bound to quests
+
+[Service]
+Type=oneshot
+# The omnigent CLI uses the host's existing login; questlog adds no credentials.
+ExecStart=%h/.local/bin/questlog scribe-omnigent --idle-minutes 15

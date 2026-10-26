@@ -20,7 +20,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .. import bindings, config as cfgmod, ledger, store
-from . import claude_code
+from . import claude_code, omnigent
 
 STATE = cfgmod.STATE_DIR / "scribe"
 LOG = cfgmod.STATE_DIR / "scribe.log"
@@ -121,17 +121,41 @@ def _xp(cfg: cfgmod.Config, size: str) -> int:
     return cfg.xp.get(f"deed_{size}", cfg.xp["deed_small"])
 
 
-def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False,
-        cfg: cfgmod.Config | None = None, force: bool = False) -> str:
-    cfg = cfg or cfgmod.load()
+def _source(session_id: str, records: list[dict] | None = None) -> dict | None:
+    """A session from either harness, in one shape: harness, size, meta, when it last moved (`now`),
+    a lazy `condense`, and the id a quest's sessions list keeps (`key`)."""
+    if omnigent.is_omnigent(session_id):
+        if records is None:
+            try:
+                records = omnigent.load(session_id)
+            except RuntimeError as e:
+                _log(f"{session_id} {e}")
+                return None
+        if not records:
+            return None
+        # Full conv id: the quest can deep-link to it (omnigent.link).
+        return {"harness": "omnigent", "size": omnigent.size(records), "meta": omnigent.meta(records),
+                "now": omnigent.activity(records) or time.time(), "condense": lambda: omnigent.condense(records),
+                "key": session_id, "activity": omnigent.activity(records)}
     tpath = claude_code.transcript_path(session_id)
     if tpath is None:
+        return None
+    return {"harness": "claude-code", "size": tpath.stat().st_size, "meta": claude_code.meta(tpath),
+            "now": tpath.stat().st_mtime, "condense": lambda: claude_code.condense(tpath), "key": session_id[:8]}
+
+
+def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False,
+        cfg: cfgmod.Config | None = None, force: bool = False, records: list[dict] | None = None) -> str:
+    """Scribe one session. `records`: an Omnigent export already loaded (otherwise it's fetched)."""
+    cfg = cfg or cfgmod.load()
+    src = _source(session_id, records)
+    if src is None:
         return "no transcript"
-    size = tpath.stat().st_size
+    size, meta, key = src["size"], src["meta"], src["key"]
     bound = _resolve(quest_ref, cfg) if quest_ref else None
     if not bound and size < MIN_SIZE:
         return "too small"
-    if not bound and claude_code.meta(tpath).get("entrypoint") in HEADLESS:
+    if not bound and meta.get("entrypoint") in HEADLESS:
         return "headless helper run, skipped"
     STATE.mkdir(parents=True, exist_ok=True)
     sf = STATE / f"{session_id}.json"
@@ -153,7 +177,7 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                    "invented events. Keep digest, decisions, advice, save_state and next plain and factual; agents read those.\n"
                    if cfg.journal_voice else "")
     prompt = (PROMPT.replace("{human}", cfg.human).replace("{goal_map}", goal_map(cfg)).replace("{voice_block}", voice_block)
-              .replace("{bound_block}", bound_block).replace("{transcript}", claude_code.condense(tpath)))
+              .replace("{bound_block}", bound_block).replace("{transcript}", src["condense"]()))
     out = _call(cfg, prompt)
     if out is None:
         return "scribe failed"
@@ -172,12 +196,11 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
     if f and arc and not f.arc(arc):
         arc = ""
     keep = conf >= 0.5
-    meta = claude_code.meta(tpath)
-    now = tpath.stat().st_mtime
+    now = src["now"]
     ledger.record_session(cfg, {
-        "id": session_id, "harness": "claude-code", "cwd": meta.get("cwd", ""),
+        "id": session_id, "harness": src["harness"], "cwd": meta.get("cwd", ""),
         "started": meta.get("started", 0), "ended": now,
-        "title": out.get("title") or meta.get("first_prompt", "")[:60],
+        "title": out.get("title") or meta.get("title") or meta.get("first_prompt", "")[:60],
         "faction": faction if keep else "", "arc": arc if keep else "",
         "quests": [quest_ref] if quest_ref and keep else [],
         "digest": out.get("digest", ""), "decisions": out.get("decisions") or [], "confidence": conf,
@@ -207,8 +230,8 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
         bindings.attach(session_id, target.ref)
         _log(f"{session_id[:8]} auto-bound to {target.ref} ({conf:.2f})")
         if not throttle:
-            sf.write_text(json.dumps({"size": size, "at": time.time()}))
-            return run(session_id, target.ref, cfg=cfg, force=True)  # the session ended: one full bound pass now
+            _save_state(sf, src)
+            return run(session_id, target.ref, cfg=cfg, force=True, records=records)  # the session ended: one full bound pass now
     if target:
         upd = out.get("quest_update") if bound else None
         today = date.today().isoformat()
@@ -221,8 +244,10 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                 status = upd.get("status")
                 if status == "done" and not upd.get("done_met"):
                     status = "active"  # never close a quest whose definition of done isn't visibly met
-                if status == "done" and (q.authority or "autonomous") != "autonomous":
-                    q.waiting = "Sign-off: the session believes the definition of done is met"
+                unreviewed = store.review_block(cfg, q) if status == "done" and q.status != "done" else ""
+                if status == "done" and ((q.authority or "autonomous") != "autonomous" or unreviewed):
+                    q.waiting = "Sign-off: the session believes the definition of done is met" + (
+                        f", but {unreviewed}" if unreviewed else "")
                     status = None      # the game master closes it
                 if status == "sent":
                     trig = (upd.get("trigger") or "").strip()
@@ -236,20 +261,27 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                     q.status = status
                 finished = {s.strip().lower() for s in upd.get("objectives_done") or [] if isinstance(s, str)}
                 q.objectives = [(c or t.lower() in finished, t) for c, t in q.objectives]
-            if session_id[:8] not in q.sessions:
-                q.sessions.append(session_id[:8])
+            if key not in q.sessions:
+                q.sessions.append(key)
             line = out.get("journal_entry") or out.get("digest") or (deeds[0]["text"] if deeds else "")
             if line:
-                q.log.append(f"{today} `{session_id[:8]}`: {' '.join(line.split())[:220]}")
+                q.log.append(f"{today} `{key}`: {' '.join(line.split())[:220]}")
 
         with store.locked(target.path):
             fresh = store.parse(target.path, target.faction, target.arc)
             apply(fresh)
             store.save(fresh, cfg)
 
-    sf.write_text(json.dumps({"size": size, "at": time.time()}))
+    _save_state(sf, src)
     where = "/".join(x for x in (faction, arc) if x) or "unclassified"
     return f"{where} ({conf:.2f}); {len(deeds)} deeds" + (f"; updated {target.ref}" if target else "")
+
+
+def _save_state(sf: Path, src: dict) -> None:
+    st = {"size": src["size"], "at": time.time()}
+    if src.get("activity"):
+        st["activity"] = src["activity"]   # Omnigent: the conversation's last move, so the timer skips it until it moves again
+    sf.write_text(json.dumps(st))
 
 
 def hook(stdin_json: str, *, throttle: bool) -> None:
