@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import bindings, briefs, config as cfgmod, ledger, store, views
 
-BADGE = {"active": "ACT ", "blocked": "WALL", "waiting": "YOU ", "parked": "PARK", "done": "DONE"}
+BADGE = {"active": "ACT ", "blocked": "WALL", "waiting": "YOU ", "sent": "SENT", "parked": "PARK", "done": "DONE"}
 
 
 def _print_json(obj) -> None:
@@ -363,6 +363,16 @@ def cmd_scribe(a) -> int:
     return 0
 
 
+def cmd_check(a) -> int:
+    from . import triggers
+    for r in triggers.check(dry_run=a.dry_run):
+        if r.fired:
+            print(f"{'would fire' if a.dry_run else 'FIRED'}  {r.ref}: {r.detail}")
+        elif a.verbose or r.checkable:
+            print(f"waiting     {r.ref}: {r.detail}")
+    return 0
+
+
 def cmd_serve(a) -> int:
     from .server import serve
     serve()
@@ -443,6 +453,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("scribe", help="update a quest from a session (hook mode reads JSON on stdin)")
     s.add_argument("session_id", nargs="?"); s.add_argument("--quest"); s.add_argument("--throttle", action="store_true")
     s.set_defaults(fn=cmd_scribe)
+    s = sub.add_parser("check", help="fire the triggers of sent-forth quests whose world event has happened")
+    s.add_argument("--dry-run", action="store_true"); s.add_argument("-v", "--verbose", action="store_true")
+    s.set_defaults(fn=cmd_check)
     s = sub.add_parser("serve", help="run the MCP server (stdio)"); s.set_defaults(fn=cmd_serve)
 
     a = p.parse_args(argv)

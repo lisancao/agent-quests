@@ -240,7 +240,7 @@ Laser shark vendor quoted twice the budget; regular sharks available Thursday.
 
 1. **Orient.** On a session's first prompt, the agent gets the goal its context matches, your aim and strategy, the definitions of done, the quest's state, and what recent sibling sessions on the same goal did. A session that matches nothing gets a compact map of your goals and can attach itself.
 2. **Work** happens in whatever agent you use. Agents can read and update state mid-session over MCP (`quest_get`, `quest_update`, `quest_log`).
-3. **Record.** The scribe reads the session afterwards (one cheap LLM pass) and writes a digest, the decisions made and **deeds** (accomplishments, with XP) to a session ledger; it updates the quest's save state when the session was working on one, suggests new quests when work fits an arc but no quest, never marks a quest done unless its definition of done is visibly met, and leaves one concrete tip for the next session on the quest. Headless helper runs are skipped.
+3. **Record.** The scribe reads the session afterwards (one cheap LLM pass) and writes a digest, the decisions made and **deeds** (accomplishments, with XP) to a session ledger; it updates the quest's save state when the session was working on one, suggests new quests when work fits an arc but no quest, never marks a quest done unless its definition of done is visibly met, sends a quest forth when the session's part is done and it waits on someone else, and leaves one concrete tip for the next session on the quest. A session that clearly served a quest but was never attached gets bound to it, so the save state lands where it belongs (Puck can re-sort a wrong guess). Headless helper runs are skipped.
 4. **Review.** `/quest`, `questlog brief` or the hub show where everything stands.
 
 ## Briefs: a few questions when an arc or quest is born
@@ -279,7 +279,7 @@ Run it with `questlog puck` (Claude Code, on Sonnet by default; `[puck] model` c
 
 ## Events, the inbox, and nudges
 
-Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`: `quest_added`, `activated`, `assigned`, `objective_done`, `blocked`, `unblocked`, `waiting`, `answered`, `completed`, `parked`, `reverted`. Each agent session has an **inbox**: the events about its quest, its arc, its faction's big news, and quests its agent leads, since it last looked.
+Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`: `quest_added`, `activated`, `assigned`, `objective_done`, `blocked`, `unblocked`, `waiting`, `answered`, `sent`, `returned`, `completed`, `parked`, `reverted`. Each agent session has an **inbox**: the events about its quest, its arc, its faction's big news, and quests its agent leads, since it last looked.
 
 - **Claude Code:** the `orient` hook orients a session on its first prompt, then on later prompts adds a short *Since you last looked* note, only when something relevant changed (for example, "`lair/install-the-shark-tank` completed; `lair/rehearse-the-monologue` is now active").
 - **Any MCP agent:** `inbox(session_id, agent)`.
@@ -292,6 +292,18 @@ Every change to a quest becomes an **event** in `<root>/.questlog/events.jsonl`:
 Several agents often work toward one goal at once. These keep them from tripping over each other, and keep you in charge of what matters.
 
 **Prerequisites.** `after: <quest ref>[, …]` keeps a quest parked (shown locked in the journal) until its prerequisites are done; then it activates and the lead hears about it in its inbox. Each quest also exposes its **current objective** (the first unticked one) and progress (`2/4`), which orientation shows.
+
+**Sent forth.** Plenty of quests wait on the world, not on you: a reviewer, CI, a merge, a vote, a date. Those aren't your backlog, so they get their own status, `sent`, with the event they await as a `trigger`, and what happens `then` (`done`, the default, or `active` when there will be more to do):
+
+```
+status: sent
+trigger: pr:me/lair#12 merged      # or: pr:OWNER/REPO#N closed|reviewed, file:PATH, url:URL, date:YYYY-MM-DD, quest:REF
+then: done
+```
+
+`questlog check` (run it on a timer) fires the triggers that have happened: a merged PR closes its quest, a new review wakes one back up with the news as its next step. Plain words ("the council's verdict") are fine too; they're shown, never checked.
+
+**Sub-quests and links.** A big quest splits into sub-quests that name it as their `parent`; the parent shows their progress and closes by itself when they're all done (or asks for sign-off, under `proposes`). Keep quests small enough to finish in a session or two, and set `done` at the last step your side controls (PR opened and reviewer-clean, draft approved), with the merge or the publish as its own small sent-forth quest. Anywhere in a quest, `#slug` refers to another one, like an issue reference; `quest_get` lists what a quest links to.
 
 **Authority.** Each quest (or a faction, as its default) says how much its lead may decide alone: `autonomous` (the lead may close it), `proposes` (closing becomes a sign-off request waiting on the game master; good for anything public or irreversible) or `escalates` (status and scope changes become proposals).
 
@@ -403,6 +415,7 @@ questlog new overlord "Install the shark tank" --arc lair \
 questlog puck                # talk to Puck: define, deal out and sort quests
 questlog inbox               # what changed since you last looked
 questlog conflicts           # open quests with different leads editing the same files
+questlog check [--dry-run]   # fire triggers of sent-forth quests whose event has happened
 questlog audit --by puck     # recent writes: who, what, why
 questlog undo [id]           # revert one
 questlog commons             # the shared automata world

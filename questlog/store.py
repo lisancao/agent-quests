@@ -11,11 +11,14 @@ A quest file:
 
     ---
     title: Install the shark tank
-    status: active          # active | blocked | waiting | parked | done
+    status: active          # active | blocked | waiting | sent | parked | done
     lead: claude            # who takes point
     done: Sharks in, glass holds, trapdoor drops on cue
     next: Fix the trapdoor that opens on its own
     waiting: Pick laser sharks or regular sharks   # what's blocked on the human, if anything
+    parent: build-the-lair  # a sub-quest of this one; the parent closes when all its sub-quests are done
+    trigger: pr:me/lair#12 merged   # "sent forth": the world event this quest awaits (see triggers.py)
+    then: done              # what happens when the trigger fires: done (default) | active
     sessions: 1a2b3c4d,5e6f7a8b
     cwd: ~/lair
     updated: 2026-03-12
@@ -44,7 +47,8 @@ from typing import Callable, Iterator
 
 from . import config as cfgmod
 
-FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "surface", "sessions", "cwd",
+FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "parent",
+          "trigger", "then", "surface", "sessions", "cwd",
           "match_paths", "match_keywords", "updated")
 SIZES = ("small", "medium", "large")
 AUTHORITIES = ("autonomous", "proposes", "escalates")
@@ -73,6 +77,9 @@ class Quest:
     size: str = ""          # small | medium | large (rewards)
     reward: str = ""        # a loot milestone the human sets for themselves
     after: str = ""         # prerequisites: comma-separated quest refs that must be done first
+    parent: str = ""        # the quest this is a sub-quest of
+    trigger: str = ""       # status "sent": the world event it awaits (machine-checkable or plain words)
+    then: str = ""          # when the trigger fires: done (default) | active
     authority: str = ""     # autonomous | proposes | escalates (empty: the faction's default)
     surface: str = ""       # what this quest writes: comma-separated paths or globs (conflict check, matching)
     match_paths: str = ""   # optional, comma-separated: sessions here serve this quest
@@ -106,6 +113,7 @@ class Quest:
         d = {"ref": self.ref, "faction": self.faction, "arc": self.arc, "title": self.title,
              "status": self.status, "lead": self.lead, "done": self.done, "why": self.why, "next": self.next,
              "waiting": self.waiting, "size": self.size, "reward": self.reward, "after": self.after,
+             "parent": self.parent, "trigger": self.trigger, "then": self.then or ("done" if self.trigger else ""),
             "surface": self.surface,
             "authority": self.authority or "autonomous",
             "current": self.current_objective, "progress": self.progress, "updated": self.updated}
@@ -224,6 +232,8 @@ def save(q: Quest, cfg: cfgmod.Config | None = None, *, quiet: bool = False) -> 
         events.emit(cfg, ev.pop("kind"), **ev)
     if q.status == "done" and (old is None or old.status != "done"):
         _unlock_dependents(cfg, q)
+        if q.parent:
+            _close_parent(cfg, q)
 
 
 def _unlock_dependents(cfg: cfgmod.Config, finished: Quest) -> None:
@@ -240,6 +250,42 @@ def _unlock_dependents(cfg: cfgmod.Config, finished: Quest) -> None:
                 fresh.status = "active"
                 fresh.log.append(f"{date.today().isoformat()}: unlocked; prerequisites done ({', '.join(reqs)})")
                 save(fresh, cfg)
+
+
+def _close_parent(cfg: cfgmod.Config, finished: Quest) -> None:
+    """A parent quest is done once every sub-quest is done and its own objectives are ticked."""
+    p = find(finished.parent, cfg)
+    if p is None or p.status == "done" or any(not c for c, _ in p.objectives):
+        return
+    kids = children(cfg, p)
+    if not kids or any(k.status != "done" for k in kids):
+        return
+    with locked(p.path):
+        fresh = parse(p.path, p.faction, p.arc)
+        today = date.today().isoformat()
+        if (fresh.authority or "autonomous") == "autonomous":
+            fresh.status, fresh.waiting = "done", ""
+            fresh.log.append(f"{today}: all sub-quests done; quest complete")
+        else:
+            fresh.waiting = "Sign-off: all sub-quests are done"
+            fresh.log.append(f"{today}: all sub-quests done; asked for sign-off")
+        save(fresh, cfg)
+
+
+def children(cfg: cfgmod.Config, q: Quest, qs: list[Quest] | None = None) -> list[Quest]:
+    """Sub-quests of `q` (quests whose `parent` names it)."""
+    return [x for x in (qs if qs is not None else load(cfg)) if x.parent and x.parent in (q.ref, q.slug)]
+
+
+LINK = re.compile(r"(?<![\w&/])#([a-z0-9][a-z0-9-]{2,})")
+
+
+def links(cfg: cfgmod.Config, q: Quest, qs: list[Quest] | None = None) -> list[Quest]:
+    """Quests this one mentions as #slug (like issue references), in its text, save state or log."""
+    text = " ".join([q.done, q.why, q.next, q.waiting, q.save_state, q.brief, *q.log])
+    slugs = dict.fromkeys(LINK.findall(text.lower()))
+    by_slug = {x.slug: x for x in (qs if qs is not None else load(cfg)) if x.ref != q.ref}
+    return [by_slug[s] for s in slugs if s in by_slug]
 
 
 def update(ref: str, fn: Callable[[Quest], None], cfg: cfgmod.Config | None = None) -> Quest:
@@ -396,7 +442,7 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
 def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done: str = "", next: str = "",
            lead: str = "", waiting: str = "", objectives: list[str] | None = None, cwd: str = "",
            why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "",
-           authority: str = "", surface: str = "") -> Quest:
+           authority: str = "", surface: str = "", parent: str = "") -> Quest:
     answers = dict(brief or {})
     done = done or answers.get("done", "")
     why = why or answers.get("why", "")
@@ -416,7 +462,7 @@ def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done:
               lead=lead or (f.lead if f else ""), cwd=cwd, size=size if size in SIZES else "", reward=reward,
               brief=brief_markdown(answers, qs), authority=authority if authority in AUTHORITIES else "",
               status="parked" if _unmet(cfg, after) else ("waiting" if waiting else "active"), after=after,
-              surface=surface,
+              surface=surface, parent=parent,
               objectives=[(False, o) for o in (objectives or [])])
     q.log.append(f"{date.today().isoformat()}: created")
     with locked(path):

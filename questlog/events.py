@@ -6,6 +6,7 @@ which reaches them on their next prompt, in MCP responses, and in the hub's toas
 
 Kinds: quest_added, activated (became active, e.g. its prerequisites were met), assigned (new lead),
 objective_done, blocked, unblocked, waiting (needs the game master), answered (waiting cleared),
+sent (sent forth: awaiting a world event), returned (its trigger fired and it's back in play),
 completed, parked, suggested, reverted (an audited edit was undone).
 """
 from __future__ import annotations
@@ -59,6 +60,10 @@ def diff(cfg: cfgmod.Config, old, new) -> list[dict]:
         if old.status != new.status:
             if new.status == "done":
                 out.append(("completed", f"Quest complete: {new.title}"))
+            elif new.status == "sent":
+                out.append(("sent", f"Sent forth, awaiting: {new.trigger or 'word from the world'}"))
+            elif old.status == "sent" and new.status == "active":
+                out.append(("returned", f"Word came back ({old.trigger}). Next: {new.next}"))
             elif new.status == "blocked":
                 out.append(("blocked", f"Blocked: {new.next or new.save_state[:120]}"))
             elif old.status == "blocked" and new.status == "active":

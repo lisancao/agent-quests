@@ -28,6 +28,7 @@ Use the **questlog MCP tools** if they're available (`brief`, `orient`, `faction
 | `/quest done <ref>` | check the definition of done is actually met before setting status done; if not, say what's missing |
 | `/quest log <ref> <note>` / `/quest block <ref> <why>` / `/quest park <ref>` | `quest_log` / `quest_update` (status blocked or parked) |
 | `/quest waiting` | `waiting_on_human`, smallest first |
+| `/quest send <ref> <trigger>` | `quest_update` status `sent` with the trigger (`pr:OWNER/REPO#N merged`, `file:PATH`, `url:URL`, `date:YYYY-MM-DD`, `quest:REF`, or plain words); `then` done unless there's more to do after it |
 | `/quest sheet` or "my progress" | `sheet` (level, faction reputation, achievements) and the week's `deeds`; celebrate, never list what's behind |
 | `/quest suggestions` | `suggestions` (quests the scribe proposed); offer to accept with `quest_create` |
 | `/quest hub` | tell them to run `questlog hub` (the full journal) |

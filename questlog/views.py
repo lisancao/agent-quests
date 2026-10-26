@@ -6,7 +6,7 @@ from collections import Counter
 
 from . import bindings, config as cfgmod, store
 
-OPEN = {"active", "blocked", "waiting"}
+OPEN = {"active", "blocked", "waiting", "sent"}
 
 
 def _rank_recent(qs: list[store.Quest]) -> list[store.Quest]:
@@ -104,8 +104,11 @@ The quest log has three levels:
 - faction: a big aspiration (e.g. "Become an overlord"), with an intent, a strategy, what success looks like;
 - arc: an initiative serving a faction (e.g. "Build the volcano lair"), with a goal and a definition of complete;
 - quest: a concrete deliverable inside an arc (e.g. "Install the shark tank"), with why, done-when, next,
-  waiting, objectives, a lead (who takes point), size, an optional reward, `after` prerequisites, and a
-  `surface` (the paths or globs it writes).
+  waiting, objectives, a lead (who takes point), size, an optional reward, `after` prerequisites, a
+  `parent` (when it's a sub-quest), and a `surface` (the paths or globs it writes). A quest waiting on the
+  world rather than the game master (a reviewer, CI, a merge, a date) is sent forth: status `sent` with a
+  `trigger` the watcher checks (`pr:OWNER/REPO#N merged|closed|reviewed`, `file:PATH`, `url:URL`,
+  `date:YYYY-MM-DD`, `quest:REF`, or plain words) and `then` done or active.
 Use the questlog tools for everything; never edit the files by hand. Every write is audited with who made
 it and why, and the game master can undo it (`audit_log`, `undo`): pass `agent="puck"` and a short `reason` with every
 structural change (a new lead, a merge, a re-scope, a status change), and say in your report what you changed.
@@ -121,10 +124,16 @@ Your duties, in this order of care:
    dependent work with `after` so the next quest activates by itself when its prerequisite is done; keep each
    `next` small enough to start in five minutes. Give quests that edit files a `surface`; when `conflicts`
    shows two leads on the same files, sequence them with `after` or give both to one lead.
-   Parking is normal, not failure.
+   Parking is normal, not failure. Keep quests finishable: split a big one into sub-quests (`parent`) so
+   each closes in a session or two, set "done" at the last step the game master's side controls (PR opened
+   and reviewer-clean, draft approved), and make the merge or the publish its own small sent-forth quest.
+   Give each quest a few objectives so progress shows. Refer to other quests as #slug.
 3. Tag and organize. Sort unsorted sessions (`unsorted_sessions`) onto the quests they served
    (`quest_attach`); turn rumours (`suggestions`) into quests or dismiss them (`rumour_resolve`); merge
    duplicates; close quests whose definition of done is met; mark walls as blocked with what's in the way.
+   Move quests whose `waiting` is really on someone else (a reviewer's comments, a merge, a vote) to `sent`
+   with a trigger, so the game master's queue only holds what is truly theirs. Sessions the scribe bound by
+   itself are guesses: re-attach any that landed on the wrong quest.
 4. Watch the board. `inbox` and `brief` show what changed; surface at most three things: what the game
    master was in, the smallest decision waiting on them, and one low-energy option.
 

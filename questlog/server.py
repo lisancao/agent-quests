@@ -21,6 +21,13 @@ Use it like this:
   automatically when the session ends.
 - When something meaningful changes (a decision, a blocker, the next step), call `quest_update` or `quest_log`.
   Keep `next` to one small action. Put anything that needs the game master (a login, a review, a decision) in `waiting`.
+- When your part is done and the quest now waits on someone else (a reviewer, CI, a merge, a date), send it
+  forth instead of leaving it on the game master: status "sent" with a `trigger` such as
+  `pr:apache/spark#123 merged`, `file:~/path`, `url:https://...`, `date:2026-11-01` or `quest:<ref>`
+  (plain words are fine when nothing can be checked). The watcher fires it: `then` is done (default) or active.
+- Keep quests small enough to finish in a session or two. Split a big one into sub-quests (`parent`), and
+  make "done" the last step the game master's side controls (PR opened, draft approved); the merge or the
+  publish is its own small sent-forth quest. Refer to another quest as #slug.
 - Don't list every quest unprompted; the game master works in bursts and long lists overwhelm. Lead with at most three.
 - Creating an arc or quest asks a short brief first (what it's for, how you'll know it's done). If a create
   call returns needs_brief, ask the game master those questions briefly and call again with brief={key: answer}.
@@ -84,7 +91,16 @@ def quest_get(ref: str) -> dict:
     q = store.find(ref, _cfg())
     if q is None:
         return {"error": f"no single quest matches {ref!r}; try quest_list"}
-    return q.to_dict()
+    cfg = _cfg()
+    qs = store.load(cfg)
+    out = q.to_dict()
+    kids = store.children(cfg, q, qs)
+    if kids:
+        out["sub_quests"] = [{"ref": k.ref, "title": k.title, "status": k.status} for k in kids]
+    linked = store.links(cfg, q, qs)
+    if linked:
+        out["links"] = [{"ref": k.ref, "title": k.title, "status": k.status} for k in linked]
+    return out
 
 
 @mcp.tool()
@@ -129,14 +145,16 @@ def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None
 @mcp.tool()
 def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: str = "", waiting: str = "",
                  objectives: list[str] | None = None, cwd: str = "", size: str = "", reward: str = "",
-                 after: str = "", authority: str = "", surface: str = "", brief: dict | None = None) -> dict:
+                 after: str = "", authority: str = "", surface: str = "", parent: str = "",
+                 brief: dict | None = None) -> dict:
     """Create a quest (a concrete deliverable) under a faction, ideally inside an arc. The first call returns
     the brief questions (what done looks like; why it matters for the arc); call again with brief={key: answer}.
     `next` is one small first action; `size` small|medium|large; `reward` is a treat the game master sets for
     finishing; `after` lists prerequisite quest refs (comma-separated): the quest stays parked until they're done;
     `authority`: autonomous (the lead may close it) | proposes (closing needs the game master's sign-off) |
     escalates (status and scope changes are proposals); `surface`: comma-separated paths or globs this quest
-    writes, so overlapping work by different leads is flagged (returned as `conflicts`)."""
+    writes, so overlapping work by different leads is flagged (returned as `conflicts`); `parent`: the quest
+    this is a sub-quest of (the parent closes when all its sub-quests are done)."""
     cfg = _cfg()
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
@@ -145,7 +163,7 @@ def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: 
         return briefs.needs_brief_response(cfg, "quest", miss)
     q = store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
                      objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after,
-                     authority=authority, surface=surface)
+                     authority=authority, surface=surface, parent=parent)
     out = q.to_dict()
     if (c := store.conflicts(cfg, q)):
         out["conflicts"] = c
@@ -186,9 +204,11 @@ def recall(session_id: str) -> dict:
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
                  after: str = "", authority: str = "", surface: str = "", add_objectives: list[str] | None = None,
+                 parent: str = "", trigger: str = "", then: str = "",
                  log: str = "", reason: str = "", agent: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
-    status: active | blocked | waiting | parked | done. Every write is audited and can be undone; `reason`
+    status: active | blocked | waiting | sent | parked | done. "sent" (sent forth) needs a `trigger`, the world
+    event it awaits; `then` is done (default) or active, what happens when the watcher sees it fire. Every write is audited and can be undone; `reason`
     says why (for structural changes: lead, scope, status, prerequisites), falling back to `log`; `agent` is
     who you are (e.g. "puck"), recorded with the edit."""
     if status and status not in cfgmod.STATUS_KEYS:
@@ -208,7 +228,13 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
             q.waiting = f"Proposed status change to {status}" + (f": {log}" if log else "")
             notes.append("authority is 'escalates': the status change was recorded as a proposal")
             status = ""
+        if status == "sent" and not (trigger or q.trigger):
+            notes.append("status 'sent' needs a trigger (the event it awaits); status left unchanged")
+            status = ""
+        if status == "sent" and waiting is None:
+            q.waiting = ""       # sent forth: no longer the game master's move
         for k, v in (("status", status), ("next", next), ("save_state", save_state), ("lead", lead),
+                     ("parent", parent), ("trigger", trigger), ("then", then if then in ("done", "active") else ""),
                      ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward),
                      ("after", after), ("surface", surface), ("authority", authority if authority in store.AUTHORITIES else "")):
             if v:

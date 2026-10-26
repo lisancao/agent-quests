@@ -48,7 +48,9 @@ Reply with ONLY a JSON object:
  "suggested_quest": {"faction": "...", "arc": "...", "title": "...", "done": "...", "why": "..."} or null,
  "quest_update": {"save_state": "<where the bound quest stands, at most 10 short lines>",
                   "next": "<one small next action>", "waiting": "<what's blocked on {human}, or empty>",
-                  "status": "active" | "blocked" | "waiting" | "done",
+                  "status": "active" | "blocked" | "waiting" | "sent" | "done",
+                  "trigger": "<for status sent: the world event it awaits, e.g. pr:OWNER/REPO#N merged, file:PATH, url:URL, date:YYYY-MM-DD, or plain words>",
+                  "then": "done" | "active",
                   "done_met": true | false,
                   "objectives_done": ["<exact text of objectives completed>"]} or null}
 
@@ -57,7 +59,11 @@ most sessions have 0-3. Sizes: "small" = a step, "medium" = a meaningful piece o
 (something shipped, published or completed); at most one large per session. Keep the digest, decisions and
 deeds discreet: describe progress at the level of the project, never intimate or personal detail, because
 they're shown to other sessions and on a dashboard. quest_update only if a quest is bound above. Status "done"
-only if done_met is true, meaning the definition of done is visibly met. suggested_quest only if the work
+only if done_met is true, meaning the definition of done is visibly met. Status "sent" (sent forth) when the
+session's part is finished and the quest now waits on someone other than {human} (a reviewer, CI, a merge, a
+publish date): give a trigger, prefer a machine-checkable one, and leave "waiting" empty; "then" is "done" when
+the trigger is the definition of done (the merge, the publish), "active" when there will be more to do (review
+comments to answer). Use "waiting" only for what truly needs {human}. suggested_quest only if the work
 clearly serves an arc and none of its quests fit.
 
 === SESSION ===
@@ -195,6 +201,14 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
         ledger.suggest(cfg, {**sq, "session": session_id})
 
     target = bound or (store.find(quest_ref, cfg) if quest_ref and conf >= HIGH_CONFIDENCE else None)
+    if target and not bound:
+        # Confident match on an unbound session: bind it, so its progress lands on the quest from now on.
+        # (Puck or the game master can re-sort it later; a binding is a guess, not a verdict.)
+        bindings.attach(session_id, target.ref)
+        _log(f"{session_id[:8]} auto-bound to {target.ref} ({conf:.2f})")
+        if not throttle:
+            sf.write_text(json.dumps({"size": size, "at": time.time()}))
+            return run(session_id, target.ref, cfg=cfg, force=True)  # the session ended: one full bound pass now
     if target:
         upd = out.get("quest_update") if bound else None
         today = date.today().isoformat()
@@ -210,6 +224,14 @@ def run(session_id: str, quest_ref: str | None = None, *, throttle: bool = False
                 if status == "done" and (q.authority or "autonomous") != "autonomous":
                     q.waiting = "Sign-off: the session believes the definition of done is met"
                     status = None      # the game master closes it
+                if status == "sent":
+                    trig = (upd.get("trigger") or "").strip()
+                    if trig or q.trigger:
+                        q.trigger = trig or q.trigger
+                        q.then = upd.get("then") if upd.get("then") in ("done", "active") else (q.then or "done")
+                        q.waiting = upd.get("waiting") or ""
+                    else:
+                        status = None      # sent forth without saying what for: leave the status alone
                 if status in cfgmod.STATUS_KEYS:
                     q.status = status
                 finished = {s.strip().lower() for s in upd.get("objectives_done") or [] if isinstance(s, str)}

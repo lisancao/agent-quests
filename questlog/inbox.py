@@ -12,7 +12,7 @@ from . import bindings, config as cfgmod, events, store
 
 DIR = cfgmod.STATE_DIR / "inbox"
 BROAD = ("quest_added", "activated", "completed")                       # news worth hearing faction-wide
-FOR_LEAD = ("assigned", "activated", "quest_added", "answered", "unblocked", "completed")
+FOR_LEAD = ("assigned", "activated", "quest_added", "answered", "unblocked", "returned", "completed")
 
 
 def _path(session_id: str):

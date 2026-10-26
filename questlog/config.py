@@ -51,7 +51,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-STATUS_KEYS = ("active", "blocked", "waiting", "parked", "done")
+STATUS_KEYS = ("active", "blocked", "waiting", "sent", "parked", "done")
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "questlog"
 
 

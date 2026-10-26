@@ -251,7 +251,7 @@ class Hub(App):
     def _qlabel(self, q: store.Quest, recent: set[str]) -> Text:
         g, c = self.g, self.c
         t = Text()
-        mark = {"blocked": ("✖", "bad"), "waiting": ("⏳", "warn"), "parked": (g("side"), "dim")}.get(q.status)
+        mark = {"blocked": ("✖", "bad"), "waiting": ("⏳", "warn"), "sent": ("✉", "accent2"), "parked": (g("side"), "dim")}.get(q.status)
         if q.status == "parked" and q.after:
             mark = ("🔒", "dim")
         t.append(f"{mark[0] if mark else g('obj_open')} ", style=c(mark[1] if mark else "accent2"))
