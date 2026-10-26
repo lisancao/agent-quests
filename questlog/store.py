@@ -253,9 +253,10 @@ def _unlock_dependents(cfg: cfgmod.Config, finished: Quest) -> None:
 
 
 def _close_parent(cfg: cfgmod.Config, finished: Quest) -> None:
-    """A parent quest is done once every sub-quest is done and its own objectives are ticked."""
+    """A parent quest is done once every sub-quest is done and its own objectives are ticked; with objectives
+    left (or authority short of autonomous) it asks for sign-off instead."""
     p = find(finished.parent, cfg)
-    if p is None or p.status == "done" or any(not c for c, _ in p.objectives):
+    if p is None or p.status == "done":
         return
     kids = children(cfg, p)
     if not kids or any(k.status != "done" for k in kids):
@@ -263,11 +264,15 @@ def _close_parent(cfg: cfgmod.Config, finished: Quest) -> None:
     with locked(p.path):
         fresh = parse(p.path, p.faction, p.arc)
         today = date.today().isoformat()
-        if (fresh.authority or "autonomous") == "autonomous":
+        left = [t for c, t in fresh.objectives if not c]
+        if left:
+            fresh.status, fresh.waiting = "waiting", "Sign-off: all sub-quests are done; still unticked: " + "; ".join(left)
+            fresh.log.append(f"{today}: all sub-quests done; asked for sign-off")
+        elif (fresh.authority or "autonomous") == "autonomous":
             fresh.status, fresh.waiting = "done", ""
             fresh.log.append(f"{today}: all sub-quests done; quest complete")
         else:
-            fresh.waiting = "Sign-off: all sub-quests are done"
+            fresh.status, fresh.waiting = "waiting", "Sign-off: all sub-quests are done"
             fresh.log.append(f"{today}: all sub-quests done; asked for sign-off")
         save(fresh, cfg)
 
