@@ -128,6 +128,11 @@ Your duties, in this order of care:
    each closes in a session or two, set "done" at the last step the game master's side controls (PR opened
    and reviewer-clean, draft approved), and make the merge or the publish its own small sent-forth quest.
    Give each quest a few objectives so progress shows. Refer to other quests as #slug.
+   Route quests with `workflow` (claude: a Claude Code session; polly, debby, puck: Omnigent agents) and
+   `review` (none, or cross-vendor: the quest closes only after a reviewer from another vendor than the
+   implementer passes it, recorded with `quest_review`). Both default from the arc, then the faction, so set
+   them on a quest only when it differs. When a quest under cross-vendor review asks for sign-off because no
+   such pass exists, route a review to an agent of another vendor rather than asking the game master.
 3. Tag and organize. Sort unsorted sessions (`unsorted_sessions`) onto the quests they served
    (`quest_attach`); turn rumours (`suggestions`) into quests or dismiss them (`rumour_resolve`); merge
    duplicates; close quests whose definition of done is met; mark walls as blocked with what's in the way.
@@ -175,8 +180,10 @@ def puck_prompt(cfg: cfgmod.Config | None = None, include_private: bool = True) 
             elif arc_q:
                 lines.append("  ### (no arc)")
             for q in arc_q:
-                lines.append(f"    - [{q.status}] {q.ref} (lead {q.lead or '-'}): {q.title}. next: {q.next or '-'}"
-                             + (f" | waiting: {q.waiting}" if q.waiting else ""))
+                route = ", ".join(x for x in ((f"workflow {q.workflow}" if q.workflow else ""),
+                                              (f"review {q.review}" if q.review else "")) if x)
+                lines.append(f"    - [{q.status}] {q.ref} (lead {q.lead or '-'}{'; ' + route if route else ''}): "
+                             f"{q.title}. next: {q.next or '-'}" + (f" | waiting: {q.waiting}" if q.waiting else ""))
     agents = ", ".join(f"{k} ({v})" for k, v in cfg.agents.items()) or "any"
     return (PUCK.replace("{human}", cfg.human).replace("{agents}", agents)
             .replace("{tree}", "\n".join(lines) or "(nothing yet)"))
@@ -201,11 +208,35 @@ def seed_prompt(q: store.Quest, cfg: cfgmod.Config | None = None) -> str:
         "Save state from last time:\n" + (q.save_state or "(none yet; first session)"),
         f"Next step: {q.next}" if q.next else "",
         f"Waiting on {cfg.human}: {q.waiting}" if q.waiting else "",
+        *routing_notes(q, cfg),
         "Start on the next step. If the save state looks stale, check the files rather than asking me to "
         "re-explain. Progress is saved to the quest automatically when the session ends; use the questlog "
         "tools (quest_update / quest_log) for decisions or blockers worth recording right away.",
     ]
     return "\n\n".join(p for p in parts if p)
+
+
+OMNIGENT_WORKFLOWS = ("polly", "debby", "puck")
+
+
+def routing_notes(q: store.Quest, cfg: cfgmod.Config) -> list[str]:
+    """What a session needs to know about who runs the quest and how its work is reviewed."""
+    wf, rv = store.effective(cfg, q, "workflow"), store.effective(cfg, q, "review")
+    out = []
+    if wf in OMNIGENT_WORKFLOWS:
+        out.append(f"Workflow: {wf} (an Omnigent agent). Your quest ref is `{q.ref}`. Before anything else, call "
+                   f"`quest_attach` with ref `{q.ref}` and your own Omnigent session id (this conversation's id, "
+                   "e.g. from `sys_session_get_info`), so the scribe saves your progress to the quest.")
+    elif wf:
+        out.append(f"Workflow: {wf}.")
+    if rv == "cross-vendor":
+        out.append("Review: cross-vendor. The quest can't be closed until a reviewer from a different vendor than "
+                   "the implementer passes the work. Record every review with `quest_review` (ref, pr, implementer "
+                   "and reviewer as vendor or model names such as claude or openai/codex, verdict pass or fail, "
+                   "notes); marking it done without such a pass turns into a sign-off request.")
+    elif rv == "none":
+        out.append("Review: none required.")
+    return out
 
 
 steward_prompt = puck_prompt   # older name; Puck replaced "the steward"
