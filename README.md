@@ -307,6 +307,22 @@ then: done
 
 **Authority.** Each quest (or a faction, as its default) says how much its lead may decide alone: `autonomous` (the lead may close it), `proposes` (closing becomes a sign-off request waiting on the game master; good for anything public or irreversible) or `escalates` (status and scope changes become proposals).
 
+**Workflows and cross-vendor review.** Two optional fields route a quest. `workflow` says who runs it: `claude` (a Claude Code session) or one of the Omnigent agents `polly`, `debby`, `puck`. `review` says how its work is checked: `none`, or `cross-vendor`, meaning a reviewer from a different vendor than the one that wrote the code has to pass it before the quest can close. Set them on a quest, or as defaults on an arc or a faction (in `questlog.toml` or in `ARC.md` / `FACTION.md` frontmatter); the quest's own value wins, then the arc's, then the faction's. A quest with neither set behaves as before.
+
+```toml
+[[factions]]
+id = "overlord"
+workflow = "polly"
+review = "cross-vendor"
+arcs = [{ id = "henchmen", name = "Hire henchmen", workflow = "claude", review = "none" }]
+```
+
+Reviews are recorded with the MCP tool `quest_review(ref, pr, implementer, reviewer, verdict, notes)` (or `questlog review <ref> --pr ... --implementer claude --reviewer openai/codex --verdict pass`). `implementer` and `reviewer` are vendor or model names (`claude`, `openai/codex`, `google/gemini`, `openrouter:<model>`, `local:<model>`); each is reduced to a vendor family, looking through routers and local hosts to the model they carry, so `openrouter:anthropic/claude-sonnet-4` counts as Anthropic. Name the model, not the agent: an Omnigent agent like polly can run on any vendor. Each review lands in `.questlog/reviews.jsonl` and as a line in the quest's log; `quest_get` returns the recent ones and `questlog review <ref>` lists them with the quest's current verdict.
+
+The gate: under `cross-vendor`, marking a quest done (`quest_update status=done`, a parent closing when its sub-quests finish, the scribe deciding done is met, a fired trigger, `questlog set status=done`) closes it only if at least one review passed with a reviewer whose vendor family differs from the implementer's. Otherwise the quest asks for sign-off instead, with the reason in `waiting` and in the response, the same way `authority: proposes` does. A same-vendor pass doesn't count, nor does a cross-vendor fail. Your own yes to the sign-off (in bridge or the hub) closes it, as does `questlog set <ref> status=done --signoff`.
+
+When a quest has a workflow or a review rule, the seed prompt says so. For `polly`, `debby` and `puck` it gives the agent its quest ref and asks it to call `quest_attach` with its own Omnigent session id before anything else, so the scribe can find the conversation; under `cross-vendor` it asks for every review to be recorded with `quest_review`. Puck sees both fields in its world map and routes reviews to another vendor rather than asking you.
+
 **Write surfaces.** `surface: src/lair/clock/*.py, docs/clock.md` names what a quest edits. Working in a quest's surface orients the session to that quest, and when two open quests with different leads share a surface, `questlog conflicts` (MCP `conflicts`) flags them, as do orientation and the create/update responses, before two agents edit the same files blind. Sequence them with `after` or give both to one lead.
 
 **Audit and undo.** Every write to a quest, arc or faction is recorded in `.questlog/audit.jsonl` with who made it, why (`reason`, or the log line written with it), which fields changed, and the text before. `questlog audit [--by puck]` lists them; `questlog undo [id]` reverts one (or the latest), refusing if the file has changed since so a later edit is never silently lost. Puck passes a reason with every structural change, so its reorganizing is reviewable and reversible.
@@ -362,6 +378,7 @@ Plain markdown you can read and edit anywhere (Obsidian works well), plus a hidd
 <root>/.questlog/suggestions.jsonl       quests the scribe proposes
 <root>/.questlog/events.jsonl            what changed, for agents' inboxes
 <root>/.questlog/audit.jsonl             every write: who, why, the text before (for undo)
+<root>/.questlog/reviews.jsonl           reviews recorded with quest_review (for the cross-vendor gate)
 <root>/.questlog/commons/                the shared automata world and its chronicle
 ```
 
@@ -435,11 +452,11 @@ questlog speaks MCP over stdio (`questlog serve`), so any MCP-capable agent can 
 | harness | goals + state over MCP | orientation on the first prompt | scribe after the session | `/quest` |
 |---|---|---|---|---|
 | **Claude Code** | ✅ | ✅ hook | ✅ hooks | ✅ skill |
-| **Omnigent agents** (e.g. its polly orchestrator, custom YAML agents) | ✅ | via the `orient` tool | not yet (needs an omnigent transcript adapter) | `new_quest` / `new_arc` / `puck` prompts |
+| **Omnigent agents** (e.g. its polly orchestrator, custom YAML agents) | ✅ | via the `orient` tool | ✅ `questlog scribe-omnigent` on a timer, for attached sessions | `new_quest` / `new_arc` / `puck` prompts |
 | **Other MCP clients** (Codex, Cursor, OpenCode, Claude Desktop…) | ✅ | via the `orient` tool | not yet | prompts, where the client supports them |
 | **Your own code** | Python API | `orient.briefing()` | `scribe.core.run()` | n/a |
 
-The server's built-in instructions tell every MCP agent to call `orient` at the start of work, attach itself to a quest it's working on, and record decisions with `quest_update` / `quest_log`, so harnesses without hooks still get oriented and still write state back. Only the automatic after-session scribe needs a transcript adapter; Claude Code's is in `questlog/scribe/claude_code.py`, and others can sit beside it.
+The server's built-in instructions tell every MCP agent to call `orient` at the start of work, attach itself to a quest it's working on, and record decisions with `quest_update` / `quest_log`, so harnesses without hooks still get oriented and still write state back. Only the automatic after-session scribe needs a transcript adapter; Claude Code's is in `questlog/scribe/claude_code.py`, Omnigent's in `questlog/scribe/omnigent.py`, and others can sit beside them.
 
 ### Claude Code
 
@@ -473,6 +490,8 @@ prompt: |
   `quest_update` / `quest_log`: the new save state, the next step, and every PR
   that needs the human's review under `waiting`.
 ```
+
+**The Omnigent scribe.** Omnigent has no session-end hook, so its scribe runs on a timer. `questlog scribe-omnigent [--idle-minutes N]` (default 15) looks at the sessions bound in `bindings.json` (an agent binds itself with `quest_attach`) whose id is an Omnigent one (`conv_...`, or the bare 32-character hex id the server hands out), exports each with `omnigent session export --id <id>` under the host's existing login, and scribes those that have been quiet for at least N minutes and have moved since they were last scribed. The transcript is condensed the same way Claude Code's is, recorded with harness `omnigent`, and the quest keeps the full session id so it can link to `https://omnigent.systemsnull.net/c/<id>`. `--dry-run` shows what it would do. Example systemd user units are in `examples/systemd/`; copy them to `~/.config/systemd/user/` and `systemctl --user enable --now questlog-scribe-omnigent.timer`.
 
 Omnigent policies (`tools`, `guardrails`) only gate shell and session tools, so questlog's tools aren't blocked by them. Contextual policies say what an agent *may* do; questlog adds what it's working *toward*.
 
