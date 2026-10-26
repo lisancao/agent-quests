@@ -70,7 +70,7 @@ def cmd_new(a) -> int:
     answers = _ask_brief(cfg, "quest", {"done": a.done or "", "why": a.why or ""})
     q = store.create(cfg, a.faction, a.title, arc=a.arc or "", next=a.next or "", lead=a.lead or "",
                      objectives=a.objective or [], size=a.size or "", reward=a.reward or "", brief=answers,
-                     surface=",".join(a.surface or []))
+                     surface=",".join(a.surface or []), parent=a.parent or "")
     print(q.ref)
     for c in store.conflicts(cfg, q):
         print(f"  shared surface with {c['b']} (lead {c['b_lead'] or '-'}): {', '.join(c['shared'])}", file=sys.stderr)
@@ -262,7 +262,9 @@ def cmd_set(a) -> int:
             else:
                 raise SystemExit(f"unknown field {k!r}")
     try:
-        q = store.update(a.ref, apply)
+        from . import audit
+        with audit.because(a.reason or ""):
+            q = store.update(a.ref, apply)
     except KeyError as e:
         print(e, file=sys.stderr)
         return 1
@@ -394,7 +396,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--lead"); s.add_argument("--arc"); s.add_argument("--objective", action="append")
     s.add_argument("--why"); s.add_argument("--size", choices=store.SIZES); s.add_argument("--reward")
     s.add_argument("--surface", action="append", help="path or glob this quest writes (repeatable)")
-    s.set_defaults(fn=cmd_new)
+    s.add_argument("--parent", help="the quest this is a sub-quest of"); s.set_defaults(fn=cmd_new)
     s = sub.add_parser("conflicts", help="open quests with overlapping write surfaces and different leads")
     s.set_defaults(fn=cmd_conflicts)
     s = sub.add_parser("audit", help="recent writes to quests, arcs and factions: who, what, why")
@@ -432,7 +434,8 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("tree", help="factions -> arcs -> quests"); s.add_argument("--all", action="store_true")
     s.set_defaults(fn=cmd_tree)
     s = sub.add_parser("set", help="set fields: questlog set <ref> status=parked next='...' save_state='...' log='...'")
-    s.add_argument("ref"); s.add_argument("pairs", nargs="+"); s.set_defaults(fn=cmd_set)
+    s.add_argument("ref"); s.add_argument("pairs", nargs="+")
+    s.add_argument("--reason", help="why, for the audit log"); s.set_defaults(fn=cmd_set)
     s = sub.add_parser("attach", help="bind a session to a quest")
     s.add_argument("ref"); s.add_argument("session_id"); s.set_defaults(fn=cmd_attach)
     s = sub.add_parser("brief", help="at most three things")

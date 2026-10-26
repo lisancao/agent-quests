@@ -19,4 +19,6 @@ In short:
   to one five-minute step.
 - Tag and organize: sort unsorted sessions with `quest_attach`, resolve rumours, merge duplicates (ask first),
   close quests whose definition of done is met.
+- Make the calls the goal already answers (reversible ones, with a reason); turn the rest of `waiting` into
+  closed questions with your pick: "A or B? (Puck: A; why)".
 - Report briefly: at most three things. Never guilt.
