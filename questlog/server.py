@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from . import audit, bindings, briefs, commons, config as cfgmod, inbox as inboxmod, ledger, orient as orientmod, rewards, store, views
+from . import (audit, bindings, briefs, commons, config as cfgmod, inbox as inboxmod, ledger, orient as orientmod,
+               reviews, rewards, store, views)
 
 INSTRUCTIONS = """questlog is the game master's quest log (the game master is the human who defines the game), in three levels: factions (big aspirations, e.g. "Become an
 overlord"), arcs (initiatives serving a faction, e.g. "Build the volcano lair") and quests (concrete
@@ -100,6 +101,8 @@ def quest_get(ref: str) -> dict:
     linked = store.links(cfg, q, qs)
     if linked:
         out["links"] = [{"ref": k.ref, "title": k.title, "status": k.status} for k in linked]
+    if (rv := reviews.for_quest(cfg, q.ref)):
+        out["reviews"] = rv[-10:]
     return out
 
 
@@ -146,7 +149,7 @@ def arc_create(faction: str, arc: str, name: str = "", brief: dict | None = None
 def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: str = "", waiting: str = "",
                  objectives: list[str] | None = None, cwd: str = "", size: str = "", reward: str = "",
                  after: str = "", authority: str = "", surface: str = "", parent: str = "",
-                 brief: dict | None = None) -> dict:
+                 workflow: str = "", review: str = "", brief: dict | None = None) -> dict:
     """Create a quest (a concrete deliverable) under a faction, ideally inside an arc. The first call returns
     the brief questions (what done looks like; why it matters for the arc); call again with brief={key: answer}.
     `next` is one small first action; `size` small|medium|large; `reward` is a treat the game master sets for
@@ -154,8 +157,12 @@ def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: 
     `authority`: autonomous (the lead may close it) | proposes (closing needs the game master's sign-off) |
     escalates (status and scope changes are proposals); `surface`: comma-separated paths or globs this quest
     writes, so overlapping work by different leads is flagged (returned as `conflicts`); `parent`: the quest
-    this is a sub-quest of (the parent closes when all its sub-quests are done)."""
+    this is a sub-quest of (the parent closes when all its sub-quests are done); `workflow`: who runs it,
+    claude | polly | debby | puck (empty: the arc's, then the faction's default); `review`: none | cross-vendor
+    (done needs a passing quest_review from a reviewer of another vendor than the implementer)."""
     cfg = _cfg()
+    if bad := _bad_routing(workflow, review):
+        return {"error": bad}
     if not cfg.faction(faction):
         return {"error": f"unknown faction {faction!r}; known: {[f.id for f in cfg.factions]}"}
     miss = briefs.missing(cfg, "quest", brief)
@@ -163,8 +170,8 @@ def quest_create(faction: str, title: str, next: str = "", arc: str = "", lead: 
         return briefs.needs_brief_response(cfg, "quest", miss)
     q = store.create(cfg, faction, title, arc=arc, next=next, lead=lead, waiting=waiting,
                      objectives=objectives, cwd=cwd, size=size, reward=reward, brief=brief, after=after,
-                     authority=authority, surface=surface, parent=parent)
-    out = q.to_dict()
+                     authority=authority, surface=surface, parent=parent, workflow=workflow, review=review)
+    out = store.resolve(cfg, q).to_dict()
     if (c := store.conflicts(cfg, q)):
         out["conflicts"] = c
     return out
@@ -204,25 +211,38 @@ def recall(session_id: str) -> dict:
 def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None = None, save_state: str = "",
                  lead: str = "", done: str = "", why: str = "", size: str = "", reward: str = "",
                  after: str = "", authority: str = "", surface: str = "", add_objectives: list[str] | None = None,
-                 parent: str = "", trigger: str = "", then: str = "",
+                 parent: str = "", trigger: str = "", then: str = "", workflow: str = "", review: str = "",
                  log: str = "", reason: str = "", agent: str = "") -> dict:
     """Update a quest. Only the fields you pass change. Set waiting="" to clear it.
     status: active | blocked | waiting | sent | parked | done. "sent" (sent forth) needs a `trigger`, the world
     event it awaits; `then` is done (default) or active, what happens when the watcher sees it fire. Every write is audited and can be undone; `reason`
     says why (for structural changes: lead, scope, status, prerequisites), falling back to `log`; `agent` is
-    who you are (e.g. "puck"), recorded with the edit."""
+    who you are (e.g. "puck"), recorded with the edit. `workflow` (claude | polly | debby | puck) and `review`
+    (none | cross-vendor) route the quest; under cross-vendor review, done needs a passing `quest_review` from
+    another vendor than the implementer, or it becomes a sign-off request."""
     if status and status not in cfgmod.STATUS_KEYS:
         return {"error": f"status must be one of {cfgmod.STATUS_KEYS}"}
+    if bad := _bad_routing(workflow, review):
+        return {"error": bad}
     notes: list[str] = []
+    cfg = _cfg()
 
     def apply(q: store.Quest) -> None:
         nonlocal status
         auth = q.authority or "autonomous"
+        if review:
+            q.review = review   # set before the gate, so a quest switched to review "none" can close in one call
+        unreviewed = store.review_block(cfg, q) if status == "done" and q.status != "done" else ""
         # Authority: under "proposes", finishing needs the game master's sign-off; under "escalates",
         # any status change (and changing scope or lead) becomes a request instead of a change.
-        if status == "done" and auth in ("proposes", "escalates"):
+        # Under cross-vendor review, finishing without a passing review from another vendor is a request too.
+        if status == "done" and (auth in ("proposes", "escalates") or unreviewed):
             q.waiting = f"Sign-off: proposed done. {log or q.save_state[:120]}".strip()
-            notes.append(f"authority is '{auth}': recorded as a sign-off request for the game master, not marked done")
+            if unreviewed:
+                q.waiting = f"Sign-off: proposed done, but {unreviewed}"
+                notes.append(f"not marked done: {unreviewed}; recorded as a sign-off request for the game master")
+            if auth in ("proposes", "escalates"):
+                notes.append(f"authority is '{auth}': recorded as a sign-off request for the game master, not marked done")
             status = ""
         elif status and auth == "escalates":
             q.waiting = f"Proposed status change to {status}" + (f": {log}" if log else "")
@@ -236,7 +256,8 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
         for k, v in (("status", status), ("next", next), ("save_state", save_state), ("lead", lead),
                      ("parent", parent), ("trigger", trigger), ("then", then if then in ("done", "active") else ""),
                      ("done", done), ("why", why), ("size", size if size in store.SIZES else ""), ("reward", reward),
-                     ("after", after), ("surface", surface), ("authority", authority if authority in store.AUTHORITIES else "")):
+                     ("after", after), ("surface", surface), ("authority", authority if authority in store.AUTHORITIES else ""),
+                     ("workflow", workflow)):
             if v:
                 setattr(q, k, v)
         if waiting is not None:
@@ -246,17 +267,42 @@ def quest_update(ref: str, status: str = "", next: str = "", waiting: str | None
         if log:
             from datetime import date
             q.log.append(f"{date.today().isoformat()}: {log}")
-    cfg = _cfg()
     try:
         with audit.because(reason or log, agent):
             q = store.update(ref, apply, cfg)
     except KeyError as e:
         return {"error": str(e)}
-    out = q.to_dict()
+    out = store.resolve(cfg, q).to_dict()
     if (c := store.conflicts(cfg, q)):
         out["conflicts"] = c
     if notes:
         out["notes"] = notes
+    return out
+
+
+def _bad_routing(workflow: str, review: str) -> str:
+    if workflow and workflow not in store.WORKFLOWS:
+        return f"workflow must be one of {store.WORKFLOWS}"
+    if review and review not in store.REVIEWS:
+        return f"review must be one of {store.REVIEWS}"
+    return ""
+
+
+@mcp.tool()
+def quest_review(ref: str, pr: str, implementer: str, reviewer: str, verdict: str, notes: str = "") -> dict:
+    """Record a review of a quest's work. `implementer` and `reviewer` are vendor or model names, e.g. claude,
+    openai/codex, google/gemini, openrouter:<model>, local:<model> (each is normalised to a vendor family);
+    `verdict` is pass | fail; `pr` is the PR (e.g. owner/repo#12) or what was reviewed. Under review
+    "cross-vendor", a quest closes only once a pass comes from a different vendor family than the implementer's."""
+    cfg = _cfg()
+    try:
+        row = reviews.record(cfg, ref, pr=pr, implementer=implementer, reviewer=reviewer, verdict=verdict, notes=notes)
+    except (KeyError, ValueError) as e:
+        return {"error": str(e).strip("'\"")}
+    q = store.find(row["ref"], cfg)
+    out = {"recorded": row, "review_rule": store.effective(cfg, q, "review") if q else ""}
+    if q is not None and out["review_rule"] == "cross-vendor":
+        out["can_close"] = not store.review_block(cfg, q)
     return out
 
 

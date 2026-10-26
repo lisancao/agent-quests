@@ -70,7 +70,8 @@ def cmd_new(a) -> int:
     answers = _ask_brief(cfg, "quest", {"done": a.done or "", "why": a.why or ""})
     q = store.create(cfg, a.faction, a.title, arc=a.arc or "", next=a.next or "", lead=a.lead or "",
                      objectives=a.objective or [], size=a.size or "", reward=a.reward or "", brief=answers,
-                     surface=",".join(a.surface or []), parent=a.parent or "")
+                     surface=",".join(a.surface or []), parent=a.parent or "",
+                     workflow=a.workflow or "", review=a.review or "")
     print(q.ref)
     for c in store.conflicts(cfg, q):
         print(f"  shared surface with {c['b']} (lead {c['b_lead'] or '-'}): {', '.join(c['shared'])}", file=sys.stderr)
@@ -248,10 +249,19 @@ def cmd_conflicts(a) -> int:
     return 0
 
 
+CHOICES = {"workflow": store.WORKFLOWS, "review": store.REVIEWS, "authority": store.AUTHORITIES}
+
+
 def cmd_set(a) -> int:
+    cfg = cfgmod.load()
+    gated: list[str] = []
+
     def apply(q: store.Quest) -> None:
+        was = q.status
         for kv in a.pairs:
             k, _, v = kv.partition("=")
+            if k in CHOICES and v and v not in CHOICES[k]:
+                raise SystemExit(f"{k} must be one of {', '.join(CHOICES[k])}")
             if k == "log":
                 from datetime import date
                 q.log.append(f"{date.today().isoformat()}: {v}")
@@ -261,14 +271,46 @@ def cmd_set(a) -> int:
                 setattr(q, k, v)
             else:
                 raise SystemExit(f"unknown field {k!r}")
+        # Cross-vendor review: done without a passing review from another vendor is a sign-off request,
+        # unless the game master is the one signing off (--signoff).
+        if q.status == "done" and was != "done" and not a.signoff and (why := store.review_block(cfg, q)):
+            q.status, q.waiting = "waiting", f"Sign-off: proposed done, but {why}"
+            gated.append(why)
     try:
         from . import audit
         with audit.because(a.reason or ""):
-            q = store.update(a.ref, apply)
+            q = store.update(a.ref, apply, cfg)
     except KeyError as e:
         print(e, file=sys.stderr)
         return 1
     print(f"{q.ref}: saved")
+    if gated:
+        print(f"  not marked done: {gated[0]} (asked for sign-off; --signoff closes it anyway)", file=sys.stderr)
+    return 0
+
+
+def cmd_review(a) -> int:
+    from . import reviews
+    cfg = cfgmod.load()
+    if not a.verdict:
+        q = store.find(a.ref, cfg)
+        if not q:
+            print(f"no single quest matches {a.ref!r}", file=sys.stderr)
+            return 1
+        for r in reviews.for_quest(cfg, q.ref):
+            print(f"{r['verdict']:<4}  {r.get('pr') or '-':<24} {r['implementer']} ({r['implementer_vendor']})"
+                  f" <- {r['reviewer']} ({r['reviewer_vendor']})  {r.get('notes', '')[:60]}")
+        rule = store.effective(cfg, q, "review") or "none"
+        why = store.review_block(cfg, q)
+        print(f"review rule: {rule}" + (f"; {why}" if why else ("; can close" if rule == "cross-vendor" else "")))
+        return 0
+    try:
+        r = reviews.record(cfg, a.ref, pr=a.pr or "", implementer=a.implementer or "", reviewer=a.reviewer or "",
+                           verdict=a.verdict, notes=a.notes or "")
+    except (KeyError, ValueError) as e:
+        print(e, file=sys.stderr)
+        return 1
+    print(f"{r['ref']}: review {r['verdict']} ({r['implementer_vendor']} <- {r['reviewer_vendor']})")
     return 0
 
 
@@ -365,6 +407,13 @@ def cmd_scribe(a) -> int:
     return 0
 
 
+def cmd_scribe_omnigent(a) -> int:
+    from .scribe import omnigent
+    for line in omnigent.scribe_idle(idle_minutes=a.idle_minutes, dry_run=a.dry_run):
+        print(line)
+    return 0
+
+
 def cmd_check(a) -> int:
     from . import triggers
     for r in triggers.check(dry_run=a.dry_run):
@@ -396,7 +445,10 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--lead"); s.add_argument("--arc"); s.add_argument("--objective", action="append")
     s.add_argument("--why"); s.add_argument("--size", choices=store.SIZES); s.add_argument("--reward")
     s.add_argument("--surface", action="append", help="path or glob this quest writes (repeatable)")
-    s.add_argument("--parent", help="the quest this is a sub-quest of"); s.set_defaults(fn=cmd_new)
+    s.add_argument("--parent", help="the quest this is a sub-quest of")
+    s.add_argument("--workflow", choices=store.WORKFLOWS, help="who runs it (default: the arc's, then the faction's)")
+    s.add_argument("--review", choices=store.REVIEWS, help="cross-vendor: done needs a pass from another vendor")
+    s.set_defaults(fn=cmd_new)
     s = sub.add_parser("conflicts", help="open quests with overlapping write surfaces and different leads")
     s.set_defaults(fn=cmd_conflicts)
     s = sub.add_parser("audit", help="recent writes to quests, arcs and factions: who, what, why")
@@ -435,7 +487,12 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_tree)
     s = sub.add_parser("set", help="set fields: questlog set <ref> status=parked next='...' save_state='...' log='...'")
     s.add_argument("ref"); s.add_argument("pairs", nargs="+")
-    s.add_argument("--reason", help="why, for the audit log"); s.set_defaults(fn=cmd_set)
+    s.add_argument("--reason", help="why, for the audit log")
+    s.add_argument("--signoff", action="store_true", help="the game master closes it, past the review gate")
+    s.set_defaults(fn=cmd_set)
+    s = sub.add_parser("review", help="record a review (with --verdict) or list a quest's reviews")
+    s.add_argument("ref"); s.add_argument("--pr"); s.add_argument("--implementer"); s.add_argument("--reviewer")
+    s.add_argument("--verdict", choices=("pass", "fail")); s.add_argument("--notes"); s.set_defaults(fn=cmd_review)
     s = sub.add_parser("attach", help="bind a session to a quest")
     s.add_argument("ref"); s.add_argument("session_id"); s.set_defaults(fn=cmd_attach)
     s = sub.add_parser("brief", help="at most three things")
@@ -456,6 +513,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("scribe", help="update a quest from a session (hook mode reads JSON on stdin)")
     s.add_argument("session_id", nargs="?"); s.add_argument("--quest"); s.add_argument("--throttle", action="store_true")
     s.set_defaults(fn=cmd_scribe)
+    s = sub.add_parser("scribe-omnigent", help="scribe idle Omnigent sessions bound to quests (for a timer)")
+    s.add_argument("--idle-minutes", type=float, default=15, help="only sessions quiet at least this long")
+    s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_scribe_omnigent)
     s = sub.add_parser("check", help="fire the triggers of sent-forth quests whose world event has happened")
     s.add_argument("--dry-run", action="store_true"); s.add_argument("-v", "--verbose", action="store_true")
     s.set_defaults(fn=cmd_check)
