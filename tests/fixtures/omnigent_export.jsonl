@@ -1,0 +1,8 @@
+{"record_type": "session_meta", "id": "conv_0123456789abcdef", "title": "Add shark tank sensors", "workspace": "/home/gm/lair", "created_at": 1792000000, "updated_at": 1792003600, "harness": "claude-sdk", "status": "idle"}
+{"record_type": "item", "id": "msg_1", "type": "message", "status": "completed", "created_at": 1792000010, "role": "user", "content": [{"type": "input_text", "text": "Wire the shark tank sensors to the trapdoor controller."}]}
+{"record_type": "item", "id": "msg_meta", "type": "message", "status": "completed", "created_at": 1792000011, "role": "user", "is_meta": true, "content": [{"type": "input_text", "text": "skill instructions that should be hidden"}]}
+{"record_type": "item", "id": "msg_2", "type": "message", "status": "completed", "created_at": 1792000020, "role": "assistant", "model": "polly", "content": [{"type": "output_text", "text": "I'll start by reading the controller."}]}
+{"record_type": "item", "id": "fc_1", "type": "function_call", "status": "completed", "created_at": 1792000030, "model": "polly", "name": "sys_os_edit", "arguments": "{\"path\": \"/home/gm/lair/controller.py\", \"old\": \"a\", \"new\": \"b\"}", "call_id": "call_1"}
+{"record_type": "item", "id": "fco_1", "type": "function_call_output", "status": "completed", "created_at": 1792000031, "call_id": "call_1", "output": "ok"}
+{"record_type": "item", "id": "rs_1", "type": "reasoning", "status": "completed", "created_at": 1792000032, "model": "polly", "summary": []}
+{"record_type": "item", "id": "msg_3", "type": "message", "status": "completed", "created_at": 1792003500, "role": "assistant", "model": "polly", "content": [{"type": "output_text", "text": "Sensors wired; the trapdoor now waits for two readings. PR opened as me/lair#12."}]}
