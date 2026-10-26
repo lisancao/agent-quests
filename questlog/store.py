@@ -19,6 +19,8 @@ A quest file:
     parent: build-the-lair  # a sub-quest of this one; the parent closes when all its sub-quests are done
     trigger: pr:me/lair#12 merged   # "sent forth": the world event this quest awaits (see triggers.py)
     then: done              # what happens when the trigger fires: done (default) | active
+    workflow: polly         # who runs it: claude | polly | debby | puck (empty: the arc's, then the faction's default)
+    review: cross-vendor    # none | cross-vendor: done needs a pass from a reviewer of another vendor (reviews.py)
     sessions: 1a2b3c4d,5e6f7a8b
     cwd: ~/lair
     updated: 2026-03-12
@@ -47,11 +49,12 @@ from typing import Callable, Iterator
 
 from . import config as cfgmod
 
-FIELDS = ("title", "status", "lead", "authority", "done", "why", "next", "waiting", "size", "reward", "after", "parent",
+FIELDS = ("title", "status", "lead", "authority", "workflow", "review", "done", "why", "next", "waiting", "size", "reward", "after", "parent",
           "trigger", "then", "surface", "sessions", "cwd",
           "match_paths", "match_keywords", "updated")
 SIZES = ("small", "medium", "large")
 AUTHORITIES = ("autonomous", "proposes", "escalates")
+WORKFLOWS, REVIEWS = cfgmod.WORKFLOWS, cfgmod.REVIEWS
 AUTHORITY_NOTE = {
     "autonomous": "you may finish and close this quest yourself",
     "proposes": "do the work, but don't mark it done: put it in `waiting` for the game master to sign off",
@@ -81,6 +84,8 @@ class Quest:
     trigger: str = ""       # status "sent": the world event it awaits (machine-checkable or plain words)
     then: str = ""          # when the trigger fires: done (default) | active
     authority: str = ""     # autonomous | proposes | escalates (empty: the faction's default)
+    workflow: str = ""      # claude | polly | debby | puck (empty: the arc's, then the faction's default)
+    review: str = ""        # none | cross-vendor (empty: the arc's, then the faction's default)
     surface: str = ""       # what this quest writes: comma-separated paths or globs (conflict check, matching)
     match_paths: str = ""   # optional, comma-separated: sessions here serve this quest
     match_keywords: str = ""
@@ -115,7 +120,7 @@ class Quest:
              "waiting": self.waiting, "size": self.size, "reward": self.reward, "after": self.after,
              "parent": self.parent, "trigger": self.trigger, "then": self.then or ("done" if self.trigger else ""),
             "surface": self.surface,
-            "authority": self.authority or "autonomous",
+            "authority": self.authority or "autonomous", "workflow": self.workflow, "review": self.review,
             "current": self.current_objective, "progress": self.progress, "updated": self.updated}
         if full:
             d |= {"objectives": [{"done": c, "text": t} for c, t in self.objectives],
@@ -265,9 +270,13 @@ def _close_parent(cfg: cfgmod.Config, finished: Quest) -> None:
         fresh = parse(p.path, p.faction, p.arc)
         today = date.today().isoformat()
         left = [t for c, t in fresh.objectives if not c]
+        unreviewed = review_block(cfg, fresh)
         if left:
             fresh.status, fresh.waiting = "waiting", "Sign-off: all sub-quests are done; still unticked: " + "; ".join(left)
             fresh.log.append(f"{today}: all sub-quests done; asked for sign-off")
+        elif unreviewed:
+            fresh.status, fresh.waiting = "waiting", f"Sign-off: all sub-quests are done, but {unreviewed}"
+            fresh.log.append(f"{today}: all sub-quests done; asked for sign-off ({unreviewed})")
         elif (fresh.authority or "autonomous") == "autonomous":
             fresh.status, fresh.waiting = "done", ""
             fresh.log.append(f"{today}: all sub-quests done; quest complete")
@@ -275,6 +284,38 @@ def _close_parent(cfg: cfgmod.Config, finished: Quest) -> None:
             fresh.status, fresh.waiting = "waiting", "Sign-off: all sub-quests are done"
             fresh.log.append(f"{today}: all sub-quests done; asked for sign-off")
         save(fresh, cfg)
+
+
+def resolve(cfg: cfgmod.Config, q: Quest) -> Quest:
+    """Fill an empty workflow / review from the arc, then the faction (quest > arc > faction > empty).
+    For reading only: writes re-parse the file, so defaults never land in it."""
+    for k in ("workflow", "review"):
+        if not getattr(q, k):
+            setattr(q, k, effective(cfg, q, k))
+    return q
+
+
+def effective(cfg: cfgmod.Config, q: Quest, key: str) -> str:
+    """The workflow or review that applies to `q`: its own, else its arc's, else its faction's, else ""."""
+    allowed = WORKFLOWS if key == "workflow" else REVIEWS
+    own = getattr(q, key)
+    if own in allowed:
+        return own
+    f = cfg.faction(q.faction)
+    a = f.arc(q.arc) if f and q.arc else None
+    for src in (a, f):
+        v = getattr(src, key, "") if src else ""
+        if v in allowed:
+            return v
+    return ""
+
+
+def review_block(cfg: cfgmod.Config, q: Quest) -> str:
+    """Why `q` can't be closed yet under a cross-vendor review rule ("" when it can, or no rule applies)."""
+    if effective(cfg, q, "review") != "cross-vendor":
+        return ""
+    from . import reviews
+    return reviews.block_reason(reviews.for_quest(cfg, q.ref))
 
 
 def children(cfg: cfgmod.Config, q: Quest, qs: list[Quest] | None = None) -> list[Quest]:
@@ -355,6 +396,7 @@ def load(cfg: cfgmod.Config | None = None, faction: str | None = None, *, includ
                 q.lead = f.lead
             if not q.authority:
                 q.authority = getattr(f, "authority", "") or "autonomous"
+            resolve(cfg, q)
             if statuses and q.status not in statuses:
                 continue
             if lead and q.lead != lead:
@@ -447,7 +489,7 @@ def create_arc(cfg: cfgmod.Config, faction: str, arc_id: str, name: str = "", go
 def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done: str = "", next: str = "",
            lead: str = "", waiting: str = "", objectives: list[str] | None = None, cwd: str = "",
            why: str = "", size: str = "", reward: str = "", brief: dict | None = None, after: str = "",
-           authority: str = "", surface: str = "", parent: str = "") -> Quest:
+           authority: str = "", surface: str = "", parent: str = "", workflow: str = "", review: str = "") -> Quest:
     answers = dict(brief or {})
     done = done or answers.get("done", "")
     why = why or answers.get("why", "")
@@ -467,7 +509,8 @@ def create(cfg: cfgmod.Config, faction: str, title: str, *, arc: str = "", done:
               lead=lead or (f.lead if f else ""), cwd=cwd, size=size if size in SIZES else "", reward=reward,
               brief=brief_markdown(answers, qs), authority=authority if authority in AUTHORITIES else "",
               status="parked" if _unmet(cfg, after) else ("waiting" if waiting else "active"), after=after,
-              surface=surface, parent=parent,
+              surface=surface, parent=parent, workflow=workflow if workflow in WORKFLOWS else "",
+              review=review if review in REVIEWS else "",
               objectives=[(False, o) for o in (objectives or [])])
     q.log.append(f"{date.today().isoformat()}: created")
     with locked(path):

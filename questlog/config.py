@@ -21,10 +21,13 @@ rules (folders, keywords) that tell questlog which sessions serve them.
     strategy = "Start with one island; never monologue early"
     success_looks_like = "Heroes take me seriously"
     lead = "claude"
+    workflow = "polly"               # who runs its quests: claude | polly | debby | puck (default: unset)
+    review = "cross-vendor"          # none | cross-vendor: a quest closes only after another vendor passes it
     private = false
     match = { paths = ["~/lair"], keywords = ["lair", "doomsday"] }
     arcs = [
       { id = "lair", name = "Build the volcano lair", goal = "A lair worthy of a showdown", complete_when = "Shark tank and a self-destruct button", match = { paths = ["~/lair/blueprints"] } },
+      { id = "henchmen", name = "Hire henchmen", workflow = "claude", review = "none" },   # arc defaults beat the faction's
     ]
     # quests (concrete deliverables) live in <root>/<faction>/<arc>/<quest>.md
 
@@ -52,6 +55,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 STATUS_KEYS = ("active", "blocked", "waiting", "sent", "parked", "done")
+WORKFLOWS = ("claude", "polly", "debby", "puck")   # claude: a Claude Code session; the rest: Omnigent agents
+REVIEWS = ("none", "cross-vendor")
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "questlog"
 
 
@@ -91,6 +96,8 @@ class Arc:
     goal: str = ""            # what this initiative achieves for its faction
     strategy: str = ""
     complete_when: str = ""   # the arc's definition of done
+    workflow: str = ""        # default for its quests (overrides the faction's)
+    review: str = ""
     match: Match = field(default_factory=Match)
 
 
@@ -104,6 +111,8 @@ class Faction:
     success_looks_like: str = ""  # direction more than finish line; factions are often ongoing
     lead: str = ""
     authority: str = ""           # default for its quests: autonomous | proposes | escalates
+    workflow: str = ""            # default for its quests: claude | polly | debby | puck
+    review: str = ""              # default for its quests: none | cross-vendor
     private: bool = False
     arcs: list[Arc] = field(default_factory=list)
     match: Match = field(default_factory=Match)
@@ -218,7 +227,8 @@ def _split_list(v: str) -> list[str]:
 
 def _apply_note(obj, meta: dict, body: str) -> None:
     """Fill empty fields of a Faction/Arc from its note (toml wins when both set)."""
-    for k in ("name", "intent", "strategy", "principles", "success_looks_like", "goal", "complete_when", "lead", "authority"):
+    for k in ("name", "intent", "strategy", "principles", "success_looks_like", "goal", "complete_when", "lead", "authority",
+              "workflow", "review"):
         if k in meta and hasattr(obj, k) and (not getattr(obj, k) or (k == "name" and getattr(obj, k) == obj.id)):
             setattr(obj, k, meta[k])
     if "private" in meta and hasattr(obj, "private") and not obj.private:
@@ -258,11 +268,13 @@ def load(path: Path | None = None) -> Config:
                       intent=f.get("intent") or f.get("charter", ""), strategy=f.get("strategy", ""),
                       principles=f.get("principles", ""), success_looks_like=f.get("success_looks_like", ""),
                       lead=f.get("lead", ""), authority=f.get("authority", ""), private=bool(f.get("private", False)),
+                      workflow=f.get("workflow", ""), review=f.get("review", ""),
                       match=Match.from_raw(f.get("match")))
         for a in f.get("arcs") or []:
             if isinstance(a, dict) and a.get("id"):
                 fac.arcs.append(Arc(id=str(a["id"]), name=a.get("name", a["id"]), goal=a.get("goal", ""),
                                     strategy=a.get("strategy", ""), complete_when=a.get("complete_when", ""),
+                                    workflow=a.get("workflow", ""), review=a.get("review", ""),
                                     match=Match.from_raw(a.get("match"))))
         cfg.factions.append(fac)
 
@@ -282,6 +294,10 @@ def load(path: Path | None = None) -> Config:
                 _apply_note(arc, *read_note(ad / "ARC.md"))
     if not cfg.factions:
         cfg.factions.append(Faction(id="general", name="General", intent="Everything, until you define factions"))
+    for fac in cfg.factions:   # unknown routing values mean "no default", never a surprise route
+        for obj in (fac, *fac.arcs):
+            obj.workflow = obj.workflow if obj.workflow in WORKFLOWS else ""
+            obj.review = obj.review if obj.review in REVIEWS else ""
 
     for level in ("faction", "arc", "quest"):
         b = (raw.get("briefs") or {}).get(level) or {}
