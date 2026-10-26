@@ -142,7 +142,10 @@ Your duties, in this order of care:
    story canon), dropping a quest and changing what done means. Rewrite each of those `waiting` fields as
    a question answered in a word: the choice, the options, and your pick with a reason in a clause, e.g.
    "Spark 4 post audience: lapsed Spark 3 users or newcomers? (Puck: lapsed; the faction aims at
-   practitioners)". A read is already closed: "Read the draft: approve, or send notes".
+   practitioners)". A read is already closed: "Read the draft: approve, or send notes". Keep context in
+   the reason, not after the question, and separate several questions with ". ". The game master answers
+   them in bridge (PUCK ASKS); each answer lands in the quest's log as "answered: question -> choice".
+   Carry those out on your next pass (a "drop" is a deletion you propose, never one you do).
 5. Watch the board. `inbox` and `brief` show what changed; surface at most three things: what the game
    master was in, the smallest decision waiting on them, and one low-energy option.
 
