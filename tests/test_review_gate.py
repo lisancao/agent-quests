@@ -1,4 +1,5 @@
-"""quest_review records, vendor families, and the cross-vendor done gate on every path that closes a quest."""
+"""quest_review records, vendor families, and the cross-vendor done gate on every path that closes a quest
+except a fired trigger."""
 import pytest
 
 from questlog import cli, reviews, server, store, triggers, views
@@ -88,12 +89,13 @@ def test_parent_auto_close_gated(cfg):
     assert store.find(parent.ref, cfg).status == "done"
 
 
-def test_trigger_fire_gated(cfg):
+def test_trigger_fire_not_gated(cfg):
     q = _quest(cfg, arc="inherits")
     server.quest_update(q.ref, status="sent", trigger="pr:me/lab#3 merged")
     triggers.fire(cfg, store.find(q.ref, cfg), triggers.Result(q.ref, "pr:me/lab#3 merged", True, "PR merged"))
     q = store.find(q.ref, cfg)
-    assert q.status == "waiting" and q.waiting.startswith("Sign-off: PR merged, but cross-vendor")
+    assert q.status == "done" and q.waiting == ""
+    assert reviews.for_quest(cfg, q.ref) == []
 
 
 def test_cli_set_gated_unless_signoff(cfg, capsys):

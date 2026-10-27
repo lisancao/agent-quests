@@ -112,8 +112,7 @@ def evaluate(cfg: cfgmod.Config, q: store.Quest) -> Result:
 def fire(cfg: cfgmod.Config, q: store.Quest, r: Result) -> None:
     """The event happened: the quest is done, or back in play with the news as its next step.
     A trigger is a fact checked by machine, not an agent's judgment, so `then: done` closes the quest
-    whatever its authority; a merge is not a review, though, so under cross-vendor review it closes only
-    with a passing review from another vendor, and otherwise asks the game master to sign off."""
+    whatever its authority or review rule."""
     then = (q.then or "done").strip().lower()
 
     def apply(x: store.Quest) -> None:
@@ -122,9 +121,6 @@ def fire(cfg: cfgmod.Config, q: store.Quest, r: Result) -> None:
         if then == "active":
             x.status = "active"
             x.next = f"Word came back ({r.detail}); pick it up" if not x.next else f"{r.detail}: {x.next}"
-        elif (unreviewed := store.review_block(cfg, x)):
-            x.status, x.waiting = "waiting", f"Sign-off: {r.detail}, but {unreviewed}"
-            return
         else:
             x.status = "done"
         x.waiting = ""
